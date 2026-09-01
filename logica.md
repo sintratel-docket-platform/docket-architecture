@@ -8,7 +8,7 @@
 
 Dónde corre cada cosa está en [`ambientes.md`](ambientes.md) y [`infraestructura-aws.md`](infraestructura-aws.md).
 
-> **Diagrama:** [Docket, arquitectura lógica (Eraser)](https://app.eraser.io/workspace/pK0utZappfSE43ELZTEs?diagram=0Xz4FPyYskUtz3MHjf3D)
+![Arquitectura lógica de Docket](img/logica.png)
 
 ## Componentes de aplicación
 

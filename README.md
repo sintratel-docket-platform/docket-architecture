@@ -42,9 +42,10 @@ Estas condiciones determinan [ADR-002](decisiones.md#adr-002-secretos-con-extern
 
 ## Diagramas
 
-| Diagrama | Herramienta | Enlace |
-|---|---|---|
-| Arquitectura lógica | Eraser | [Abrir](https://app.eraser.io/workspace/pK0utZappfSE43ELZTEs?diagram=0Xz4FPyYskUtz3MHjf3D) |
-| Despliegue por ambiente | Eraser | [Abrir](https://app.eraser.io/workspace/pK0utZappfSE43ELZTEs?diagram=oChlmMNDF2E9eS6lLAuw) |
-| Infraestructura AWS | Lucidchart | [Abrir](https://lucid.app/lucidchart/c9fea434-9717-40e0-aa39-baef3ba0d1d3/view) |
+| Diagrama | Imagen | Documento que lo explica | Fuente editable |
+|---|---|---|---|
+| Arquitectura lógica | [`img/logica.png`](img/logica.png) | [`logica.md`](logica.md) | Eraser |
+| Despliegue por ambiente | [`img/ambientes.png`](img/ambientes.png) | [`ambientes.md`](ambientes.md) | Eraser |
+| Infraestructura AWS | [`img/infraestructura-aws.png`](img/infraestructura-aws.png) | [`infraestructura-aws.md`](infraestructura-aws.md) | Lucidchart |
 
+Los PNG de `img/` son la versión publicada y viajan con el repositorio. La fuente editable de cada diagrama vive en la herramienta indicada. Cuando se modifique un diagrama hay que reexportar el PNG conservando el mismo nombre de archivo, para que los documentos que lo embeben sigan resolviendo.

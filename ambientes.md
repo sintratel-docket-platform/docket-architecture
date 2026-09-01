@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Propósito** | Definir qué separa un ambiente de otro, cómo avanza un cambio hasta producción y qué controles existen en cada transición. |
-> **Diagrama:** [Docket, despliegue por ambiente (Eraser)](https://app.eraser.io/workspace/pK0utZappfSE43ELZTEs?diagram=oChlmMNDF2E9eS6lLAuw)
+![Despliegue por ambiente de Docket](img/ambientes.png)
 
 Los componentes están descritos en [`logica.md`](logica.md). La capa física que sostiene este clúster está en [`infraestructura-aws.md`](infraestructura-aws.md).
 

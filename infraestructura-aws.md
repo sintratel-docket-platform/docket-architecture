@@ -5,7 +5,7 @@
 | **Propósito** | Definir la capa física sobre la que corre Docket: cuenta, red, cómputo, registry, backend de estado, identidad y secretos. |
 | **Región** | `us-east-1` |
 
-> **Diagrama:** [Docket, infraestructura AWS (Lucidchart)](https://lucid.app/lucidchart/c9fea434-9717-40e0-aa39-baef3ba0d1d3/view)
+![Infraestructura AWS de Docket](img/infraestructura-aws.png)
 
 Esta vista responde a sobre qué corre el clúster descrito en [`ambientes.md`](ambientes.md). Los componentes de la aplicación están en [`logica.md`](logica.md); las decisiones que sostienen este diseño, en [`decisiones.md`](decisiones.md).
 
