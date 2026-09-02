@@ -1,41 +1,51 @@
 # Arquitectura de Docket
 
-Arquitectura objetivo y mapa de ambientes de **Docket**, la plataforma de
-gestión de tareas para una firma legal.
+Documentación de arquitectura de **Docket**, la plataforma de gestión de tareas para una firma legal.
 
-Este repositorio contiene la arquitectura **de referencia** del proyecto: la
-meta hacia la que se construye, no una descripción de lo que ya está desplegado.
-Sirve de base para el trabajo de infraestructura como código (Terraform y
-Kubernetes), para el diseño de las pipelines de integración y despliegue
-continuo, y para la operación de la plataforma.
+Este repositorio es el entregable de documentación del proyecto. Contiene la arquitectura de referencia hacia la que se construye y el registro de las decisiones que la sostienen. Es la fuente de la que derivan el trabajo de infraestructura como código, el diseño de las pipelines y la operación de la plataforma.
 
-Responde a la historia `02. Definir arquitectura objetivo y mapa de ambientes`
-del tablero del equipo.
 
 ## Documentos
 
-| Documento | Contenido |
-|---|---|
-| [`logica.md`](logica.md) | Arquitectura lógica de componentes: los cinco microservicios, la cola de mensajes y la plataforma de soporte (registry, pipelines y observabilidad). |
-| [`ambientes.md`](ambientes.md) | Despliegue por ambiente: topología de Kubernetes, límites entre desarrollo, staging y producción, flujo GitOps y gestión de secretos. |
-| [`decisiones.md`](decisiones.md) | Decisiones arquitectónicas con su justificación y la alternativa descartada, y los supuestos que todavía no están confirmados. |
+| Documento | Contenido | Estado |
+|---|---|---|
+| [`logica.md`](logica.md) | Arquitectura lógica: los cinco microservicios, la cola de mensajes, el grafo de llamadas y la plataforma de soporte. | Componentes verificados contra el código |
+| [`ambientes.md`](ambientes.md) | Despliegue por ambiente: namespaces, límites entre `dev`, `staging` y `prod`, flujo GitOps, secretos y DNS. | Objetivo |
+| [`infraestructura-aws.md`](infraestructura-aws.md) | Capa física en AWS: presupuesto, red multi-AZ, EKS, registry, backend de estado, identidad y secretos. | Objetivo |
+| [`decisiones.md`](decisiones.md) | Registro de decisiones (ADR) con contexto, consecuencias y alternativas descartadas. | Vigente |
 
-Los diagramas exportados están en [`img/`](img/).
+## Cómo leer esta documentación
+
+Los tres documentos describen el mismo sistema en tres niveles, del más abstracto al más concreto:
+
+1. **`logica.md`**: qué piezas hay y cómo se comunican, sin entrar en dónde corren.
+2. **`ambientes.md`**: cómo se separan los ambientes dentro de Kubernetes y cómo avanza un cambio hasta producción.
+3. **`infraestructura-aws.md`**: sobre qué recursos de AWS corre todo lo anterior y cuánto cuesta.
+
+`decisiones.md` es transversal. Cada afirmación de diseño en los otros tres enlaza al ADR que la justifica.
+
+## Condiciones que enmarcan el diseño
+
+| Condición | Valor |
+|---|---|
+| Cuenta AWS | Plan gratuito por créditos: 100 USD, ampliables a 200 USD con 5 actividades guiadas |
+| Región | `us-east-1` |
+| Modo de operación | Infraestructura efímera, con `destroy` y `apply` rutinarios |
+
+Estas condiciones determinan [ADR-002](decisiones.md#adr-002-secretos-con-external-secrets-y-ssm-parameter-store), [ADR-004](decisiones.md#adr-004-cómputo-amazon-eks), [ADR-005](decisiones.md#adr-005-red-multi-az-con-un-solo-nat-gateway) y [ADR-010](decisiones.md#adr-010-infraestructura-efímera-con-estado-dividido).
 
 ## Cómo usar esta arquitectura
 
-- **Para infraestructura como código:** `ambientes.md` define la topología de
-  clúster y namespaces, y `decisiones.md` recoge las decisiones ya tomadas sobre
-  registry y gestión de secretos. Los módulos de Terraform se derivan de ahí sin
-  volver a discutir la arquitectura.
-- **Para las pipelines:** `ambientes.md` describe los límites entre ambientes y
-  la promoción entre ellos, incluida la aprobación manual antes de producción.
-- **Para operación:** `logica.md` describe qué hace cada servicio y de qué
-  depende, y `ambientes.md` describe dónde corre cada cosa.
+- **Para infraestructura como código:** el presupuesto, la topología de red y la división de stacks están en `infraestructura-aws.md`. La topología de namespaces está en `ambientes.md`.
+- **Para las pipelines:** `ambientes.md` describe los controles de promoción, e `infraestructura-aws.md` el flujo de cambio de infraestructura y el modelo de credenciales.
+- **Para operación:** `logica.md` describe qué hace cada servicio y de qué depende. Los otros dos describen dónde corre cada cosa y cómo se accede.
 
-## Antes de dar algo por sentado
+## Diagramas
 
-`decisiones.md` marca de forma explícita los supuestos que aún no ha confirmado
-el team lead, en particular la topología de clúster. Reviselos antes de
-construir sobre ellos: cambiar un supuesto en esta etapa cuesta una
-conversación, y hacerlo después cuesta rehacer infraestructura.
+| Diagrama | Imagen | Documento que lo explica | Fuente editable |
+|---|---|---|---|
+| Arquitectura lógica | [`img/logica.png`](img/logica.png) | [`logica.md`](logica.md) | Eraser |
+| Despliegue por ambiente | [`img/ambientes.png`](img/ambientes.png) | [`ambientes.md`](ambientes.md) | Eraser |
+| Infraestructura AWS | [`img/infraestructura-aws.png`](img/infraestructura-aws.png) | [`infraestructura-aws.md`](infraestructura-aws.md) | Lucidchart |
+
+Los PNG de `img/` son la versión publicada y viajan con el repositorio. La fuente editable de cada diagrama vive en la herramienta indicada. Cuando se modifique un diagrama hay que reexportar el PNG conservando el mismo nombre de archivo, para que los documentos que lo embeben sigan resolviendo.
