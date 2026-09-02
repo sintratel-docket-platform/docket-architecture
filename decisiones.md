@@ -6,7 +6,7 @@
 | **Formato** | Un ADR (Architecture Decision Record) por decisión, numerado y con estado explícito. |
 | **Regla** | Una decisión no se borra ni se reescribe en silencio. Se marca como *Reemplazada* y se agrega la nueva, para que quede registro de qué se rechazó y por qué. |
 
-Estados: **Aceptada** · **Supuesto** (tomada por ausencia de indicación contraria, todavía sin validar con el team lead) · **Reemplazada**.
+Estados: **Aceptada** · **Supuesto** (tomada por ausencia de indicación contraria y todavía sin confirmar) · **Reemplazada**.
 
 ## Condiciones que enmarcan todas las decisiones
 
@@ -23,7 +23,7 @@ Estados: **Aceptada** · **Supuesto** (tomada por ausencia de indicación contra
 |---|---|---|
 | [001](#adr-001-registry-amazon-ecr) | Registry: Amazon ECR | Aceptada |
 | [002](#adr-002-secretos-con-external-secrets-y-ssm-parameter-store) | Secretos: External Secrets y SSM Parameter Store | Aceptada |
-| [003](#adr-003-un-clúster-compartido-con-tres-namespaces) | Un clúster compartido con tres namespaces | **Supuesto** |
+| [003](#adr-003-un-clúster-compartido-con-tres-namespaces) | Un clúster compartido con tres namespaces | Aceptada |
 | [004](#adr-004-cómputo-amazon-eks) | Cómputo: Amazon EKS | Aceptada |
 | [005](#adr-005-red-multi-az-con-un-solo-nat-gateway) | Red: multi-AZ con un solo NAT Gateway | Aceptada |
 | [006](#adr-006-acceso-administrativo-con-ssm-session-manager) | Acceso administrativo con SSM Session Manager | Aceptada |
@@ -73,9 +73,9 @@ Estados: **Aceptada** · **Supuesto** (tomada por ausencia de indicación contra
 
 ## ADR-003 Un clúster compartido con tres namespaces
 
-**Estado:** **Supuesto.**
+**Estado:** Aceptada.
 
-**Contexto.** El criterio de  que lo exija. Se descarta porque triplica el costo del control plane y agota el saldo disponible en pocos días.aceptación del tablero menciona "clúster/namespace" como una sola unidad.
+**Contexto.** El criterio de aceptación del tablero menciona "clúster/namespace" como una sola unidad, y el presupuesto disponible es un saldo de créditos limitado.
 
 **Decisión.** Un solo clúster EKS con los namespaces `dev`, `staging` y `prod`, cada uno con su propio RBAC y sus resource quotas.
 

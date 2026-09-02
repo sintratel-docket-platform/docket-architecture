@@ -19,8 +19,6 @@ Junto a la aplicación, dentro del clúster corren:
 | **AWS Load Balancer Controller** | Traduce los objetos `Ingress` en la configuración del ALB |
 | **Stack de observabilidad** | Prometheus, Grafana, Zipkin y logs centralizados |
 
-> **Supuesto todavía sin validar.** La elección de un clúster compartido en lugar de tres clústeres separados. 
-
 ## Límites entre desarrollo, staging y producción
 
 **Qué los separa.** El aislamiento ocurre a nivel lógico. Cada namespace tiene su propio RBAC, sus resource quotas y su prefijo de secretos en Parameter Store (`/docket/<ambiente>/...`), al que solo accede su rol de IRSA. Al compartir clúster no hay aislamiento de nodo ni de plano de control, así que un incidente en el clúster alcanza a los tres ambientes al mismo tiempo, producción incluida.
