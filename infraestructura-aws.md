@@ -131,7 +131,7 @@ Sin esta separación, un `destroy` arrastraría el registry, los secretos y la z
 | **Nodos del clúster** | Rol de instancia del node group | `pull` desde ECR |
 | **External Secrets Operator** | IRSA, con un rol de IAM asociado a su service account | Leer parámetros de SSM |
 | **AWS Load Balancer Controller** | IRSA | Crear y configurar el ALB |
-| **Personas del equipo** | Usuario IAM entregado por el team lead | Consola y `kubectl` mediante EKS access entries |
+| **Personas del equipo** | Usuario IAM del proyecto | Consola y `kubectl` mediante EKS access entries |
 
 **Dos roles, no uno.** El job que construye imágenes no necesita permisos para crear VPCs ni clústeres, así que se separa en un rol propio limitado a `ecr:*` sobre los cinco repositorios. El rol amplio, con permisos sobre EC2, VPC, IAM, S3, EKS y Route 53, queda reservado al job que ejecuta Terraform. Esta separación responde al criterio de accesos limitados según necesidad de la historia `18` del tablero.
 
