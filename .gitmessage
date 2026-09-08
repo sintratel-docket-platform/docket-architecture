@@ -1,0 +1,33 @@
+# <type>(<scope>): <subject>
+# └ imperative, lowercase, no trailing period, whole line <= 72 chars
+#
+#
+# Why this change was needed. The diff already shows what changed.
+# Wrap at 72 columns.
+#
+# Refs: #<card>
+#
+# ---------------------------------------------------------------------------
+# Types
+#   feat      a new capability                        -> minor version
+#   fix       a defect repair                         -> patch version
+#   docs      documentation only
+#   refactor  restructuring, no behaviour change
+#   perf      performance improvement                 -> patch version
+#   test      adding or correcting tests
+#   build     build system, dependencies, Dockerfiles
+#   ci        pipelines and workflows
+#   chore     maintenance that fits nothing else
+#   revert    reverting a previous commit
+#
+# Breaking change: feat(scope)!: ...
+#                  or a BREAKING CHANGE: footer with the migration path.
+#
+# Refs: is REQUIRED and names the Kanban card.
+#
+# English only. No tool attribution trailers, no session URLs, no notes
+# about how the content was produced.
+#
+# Enable with:  git config commit.template .gitmessage
+# Full rules:   AGENTS.md sections 4, 5 and 6
+# ---------------------------------------------------------------------------
