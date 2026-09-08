@@ -157,7 +157,9 @@ El árbol de parámetros se segmenta por ambiente (`/docket/dev/...`, `/docket/s
 
 Este flujo corre en paralelo al despliegue de la aplicación. Argo CD sincroniza el repositorio de manifiestos por su cuenta y la pipeline de Terraform nunca aplica cambios dentro del clúster. Ver [`ambientes.md`](ambientes.md#flujo-gitops).
 
-Floci emula la API de AWS sin plano de datos: un EKS creado contra Floci responde como recurso pero no ejecuta pods. Su alcance es validar el código de infraestructura antes de aplicarlo. Ver [ADR-007](decisiones.md#adr-007-validación-de-terraform-contra-floci-en-ci).
+The Terraform CI workflow validates formatting and provider schemas, runs
+TFLint, Trivy, and Checkov, and evaluates real plan JSON against the Docket OPA
+policy. See [ADR-007](decisiones.md#adr-007-terraform-validation-with-ci-quality-gates).
 
 ## Dominio, DNS y TLS
 
