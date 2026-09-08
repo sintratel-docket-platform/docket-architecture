@@ -1,0 +1,45 @@
+# CODEOWNERS — automatic reviewer assignment
+#
+# Place at .github/CODEOWNERS in each repository.
+# Replace the placeholder handles with real GitHub usernames before committing.
+#
+# Pairs with branch protection: "Require review from Code Owners".
+# The goal is that no PR can be self-approved (AGENTS.md §6).
+
+# ---------------------------------------------------------------------------
+# Default: any change needs a platform reviewer
+# ---------------------------------------------------------------------------
+*                               @EstebanGZam @isahrnd @juandavid175 @Melo088
+
+# ---------------------------------------------------------------------------
+# Governance — changing the rules requires broader agreement
+# ---------------------------------------------------------------------------
+AGENTS.md                       @EstebanGZam @isahrnd @juandavid175 @Melo088
+CONTRIBUTING.md                 @EstebanGZam @isahrnd @juandavid175 @Melo088
+CODEOWNERS                      @EstebanGZam @isahrnd @juandavid175 @Melo088
+.github/                        @EstebanGZam @isahrnd @juandavid175 @Melo088
+
+# ---------------------------------------------------------------------------
+# docket-infrastructure
+# ---------------------------------------------------------------------------
+# Identity and state bootstrap carry the highest blast radius.
+modules/ci-identity/            @EstebanGZam @isahrnd @juandavid175 @Melo088
+stacks/bootstrap/               @EstebanGZam @isahrnd @juandavid175 @Melo088
+stacks/persistent/              @EstebanGZam @isahrnd @juandavid175 @Melo088
+policies/                       @EstebanGZam @isahrnd @juandavid175 @Melo088
+
+modules/                        @EstebanGZam @isahrnd @juandavid175 @Melo088
+stacks/                         @EstebanGZam @isahrnd @juandavid175 @Melo088
+
+# ---------------------------------------------------------------------------
+# docket-gitops — production sync policy is a controlled change
+# ---------------------------------------------------------------------------
+argocd/                         @EstebanGZam @isahrnd @juandavid175 @Melo088
+environments/prod/              @EstebanGZam @isahrnd @juandavid175 @Melo088
+environments/                   @EstebanGZam @isahrnd @juandavid175 @Melo088
+apps/                           @EstebanGZam @isahrnd @juandavid175 @Melo088
+
+# ---------------------------------------------------------------------------
+# docket-architecture — public repository
+# ---------------------------------------------------------------------------
+decisions.md                    @EstebanGZam @isahrnd @juandavid175 @Melo088
