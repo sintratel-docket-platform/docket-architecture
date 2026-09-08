@@ -27,7 +27,7 @@ Estados: **Aceptada** · **Supuesto** (tomada por ausencia de indicación contra
 | [004](#adr-004-cómputo-amazon-eks) | Cómputo: Amazon EKS | Aceptada |
 | [005](#adr-005-red-multi-az-con-un-solo-nat-gateway) | Red: multi-AZ con un solo NAT Gateway | Aceptada |
 | [006](#adr-006-acceso-administrativo-con-ssm-session-manager) | Acceso administrativo con SSM Session Manager | Aceptada |
-| [007](#adr-007-validación-de-terraform-contra-floci-en-ci) | Validación de Terraform contra Floci en CI | Aceptada |
+| [007](#adr-007-terraform-validation-with-ci-quality-gates) | Terraform validation with CI quality gates | Implemented |
 | [008](#adr-008-dns-en-route-53-y-tls-con-acm) | DNS en Route 53 y TLS con ACM | Aceptada |
 | [009](#adr-009-bloqueo-de-estado-nativo-de-s3) | Bloqueo de estado nativo de S3 | Aceptada |
 | [010](#adr-010-infraestructura-efímera-con-estado-dividido) | Infraestructura efímera con estado dividido | Aceptada |
@@ -140,20 +140,32 @@ Estados: **Aceptada** · **Supuesto** (tomada por ausencia de indicación contra
 
 ---
 
-## ADR-007 Validación de Terraform contra Floci en CI
+## ADR-007 Terraform validation with CI quality gates
 
-**Estado:** Aceptada.
+**Status:** Implemented.
 
-**Contexto.** Un error de Terraform aplicado contra la cuenta real puede dejar infraestructura a medio crear y consumir créditos del saldo. Floci es un emulador de código abierto de la API de AWS, ejecutable dentro del runner de CI.
+**Context.** A Terraform defect applied to the real account can leave partially
+created infrastructure and consume the limited AWS credit balance. The original
+decision proposed an emulator, but no Floci configuration was implemented.
 
-**Decisión.** Antes del `apply` real, un job corre `terraform plan` y `apply` contra Floci. Terraform declara dos configuraciones del provider `aws`: la real y un alias con `endpoints` apuntando a `localhost:4566`, activo solo en ese job.
+**Decision.** Pull requests run canonical formatting and validation, TFLint,
+Trivy, and Checkov. The infrastructure planning workflow serializes its saved
+plan with `terraform show -json` and evaluates it against the Docket OPA policy.
+Terraform module tests run in a separate job whenever a module provides a
+`tests/` directory.
 
-**Consecuencias.**
-- Los errores de sintaxis, las referencias rotas y las políticas mal formadas se detectan en CI.
-- Floci emula la API sin plano de datos, así que un recurso creado contra el emulador responde como recurso pero no ejecuta nada. Su alcance es validar código de infraestructura.
-- La cobertura de un emulador nunca es total, de modo que un `apply` válido contra Floci reduce el riesgo sin eliminarlo.
+**Consequences.**
+- Syntax errors, broken references, provider-specific defects, and common IaC
+  misconfigurations fail before infrastructure planning.
+- Docket-specific security invariants are evaluated against the planned
+  resource values rather than inferred from source text.
+- Real-state planning remains necessary because static gates cannot detect
+  drift, incorrect targets, or a missing `moved` block.
 
-**Alternativa descartada.** Aplicar directamente contra la cuenta real desde el primer intento. Es lo habitual en proyectos pequeños y convierte el ambiente real en el lugar donde se descubren los errores, algo que aquí se paga en créditos.
+**Rejected alternative.** Applying against the real account as the first
+validation step would turn shared infrastructure into the test environment.
+Floci remains a possible future integration tool, but it is not recorded as an
+implemented control.
 
 ---
 
