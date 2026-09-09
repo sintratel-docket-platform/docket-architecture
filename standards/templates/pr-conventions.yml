@@ -44,6 +44,20 @@ jobs:
             chore
             revert
           requireScope: false
+
+          # A scope outside this list fails the check. AGENTS.md section 5 holds
+          # the vocabulary and the reasoning; this is the copy that enforces it.
+          # Edit the source there, then redistribute — the drift check below
+          # catches a copy that fell behind.
+          #
+          # REPOSITORY-SPECIFIC: keep the three shared scopes, then replace the
+          # block under them with this repository's row from that table.
+          scopes: |
+            ci
+            security
+            deps
+            docs
+            SCOPES_FOR_THIS_REPOSITORY
           subjectPattern: ^(?![A-Z]).+[^.]$
           subjectPatternError: |
             The subject "{subject}" is invalid.

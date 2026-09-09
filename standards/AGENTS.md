@@ -208,16 +208,58 @@ Refs: #<card>
 
 ### Scope vocabulary
 
-Constrained per repository. Do not invent scopes.
+A scope names **a section of the codebase**, not a concern or an activity. That
+is the specification's wording, and it is what keeps the list finite: a section
+of the codebase can be pointed at, a concern cannot.
 
-| Repository | Allowed scopes |
+Constrained per repository, and enforced by the `scopes` input of the
+`pr-conventions` workflow. A scope outside its repository's list fails the
+check. Adding one is a pull request against this file, then a redistribution —
+the same path as any other rule here.
+
+**Every repository** also allows these three, because every repository has them:
+
+| Scope | Covers |
 |---|---|
-| `docket-infrastructure` | `bootstrap`, `persistent`, `ephemeral`, `platform`, `environments`, `makefile`, `scripts`, `policy`, `docs` |
+| `ci` | `.github/workflows`, and anything that only runs in a pipeline |
+| `security` | Scanner and policy configuration: `trivy.yaml`, `.trivyignore`, `.checkov.yml`, `sonar-project.properties`, `policy/` |
+| `deps` | Dependency and pin bumps, including the ones a bot opens |
+
+| Repository | Additional scopes |
+|---|---|
+| `docket-infrastructure` | `bootstrap`, `persistent`, `ephemeral`, `platform`, `environments`, `makefile`, `scripts`, `state`, `docs` |
 | `docket-terraform-modules` | `network`, `cluster`, `registry`, `ci-identity`, `irsa`, `namespace`, `environment`, `dns`, `docs` |
-| `docket-gitops` | `argocd`, `redis`, `frontend`, `auth-api`, `users-api`, `todos-api`, `log-processor`, `overlays`, `docs` |
-| `docket-architecture` | `logical`, `environments`, `aws`, `adr`, `diagrams` |
-| Service repositories | `api`, `auth`, `config`, `docker`, `deps`, `docs` |
+| `docket-gitops` | `argocd`, `redis`, `frontend`, `auth-api`, `users-api`, `todos-api`, `log-processor`, `overlays`, `apps`, `docs` |
+| `docket-architecture` | `logical`, `environments`, `aws`, `adr`, `diagrams`, `standards`, `docs` |
+| `docket-roadmap` | `stories`, `iterations`, `plans`, `docs` |
+| Service repositories | `api`, `auth`, `config`, `docker`, `tests`, `docs` |
 | `docket-ai-sdd` | `commands`, `settings`, `scripts`, `specs`, `docs` |
+
+Omitting the scope is allowed and is the right answer when a change genuinely
+belongs to no single section — a repository-wide rename, for instance. Do not
+reach for a vague scope to avoid an empty one.
+
+### Security work has no type of its own
+
+There is no `security` type, and adding one would be a mistake with a concrete
+cost: `release-please` and every other Conventional Commits release tool derive
+the version bump from the type, and they do not know `security`. Such a commit
+produces **no version bump** and lands in an "Other" section of the release
+notes — the opposite of what a security change needs.
+
+Classify by what the change *is*, and let the `security` scope carry the rest:
+
+| Change | Commit |
+|---|---|
+| Repairing an actual vulnerability | `fix(auth): reject a token whose audience is not this cluster` |
+| Adding or configuring a scanner | `ci(security): add the Trivy image scan in report mode` |
+| Tuning what a scanner accepts | `chore(security): record the EKS envelope encryption finding with an expiry` |
+| Bumping a dependency to clear an advisory | `fix(deps): bump trivy-action past the compromised range` |
+
+A vulnerability repair is a `fix`, so it produces a patch release and appears
+under "Bug Fixes" where somebody scanning the notes will actually see it. When
+it matters that a reader knows an advisory drove it, name the advisory in the
+body — `CVE-2025-1234`, `GHSA-xxxx` — not in the type.
 
 ### Examples
 
