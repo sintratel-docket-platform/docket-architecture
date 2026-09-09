@@ -1,58 +1,58 @@
-# Arquitectura lógica de componentes
+# Logical component architecture
 
 | | |
 |---|---|
-| **Propósito** | Describir qué piezas componen Docket y cómo se comunican entre sí, sin entrar en dónde corre cada una. |
-| **Audiencia** | Todo el equipo. Es el punto de entrada para entender el sistema sin leer el código. |
-| **Estado** | Los componentes y sus dependencias están verificados contra el código de `microservice-app-example`. La plataforma de soporte (registry, pipelines, observabilidad) describe el objetivo. |
+| **Purpose** | Describe which pieces make up Docket and how they talk to each other, without going into where each one runs. |
+| **Audience** | The whole team. It is the entry point for understanding the system without reading the code. |
+| **Status** | The components and their dependencies are verified against the `microservice-app-example` code. The supporting platform (registry, pipelines, observability) describes the target. |
 
-Dónde corre cada cosa está en [`environments.md`](environments.md) y [`aws-infrastructure.md`](aws-infrastructure.md).
+Where each thing runs is in [`environments.md`](environments.md) and [`aws-infrastructure.md`](aws-infrastructure.md).
 
-![Arquitectura lógica de Docket](img/logical-architecture.png)
+![Docket logical architecture](img/logical-architecture.png)
 
-## Componentes de aplicación
+## Application components
 
-Cinco microservicios y una cola de mensajes. Cada servicio se despliega por separado y escala de forma independiente.
+Five microservices and a message queue. Each service is deployed separately and scales independently.
 
-| Componente | Stack | Rol | Variables de entorno |
+| Component | Stack | Role | Environment variables |
 |---|---|---|---|
-| **Frontend** | Vue.js | Interfaz web y proxy hacia las APIs. Es el único componente expuesto públicamente, a través del Ingress que el AWS Load Balancer Controller materializa como un ALB con certificado de ACM. | `PORT`, `AUTH_API_ADDRESS`, `TODOS_API_ADDRESS`, `ZIPKIN_URL` |
-| **Auth API** | Go | Autenticación. `POST /login` valida credenciales contra Users API y emite un JWT. | `AUTH_API_PORT`, `USERS_API_ADDRESS`, `JWT_SECRET`, `ZIPKIN_URL` |
-| **Users API** | Java, Spring Boot | Perfiles de usuario, solo lectura: `GET /users` y `GET /users/:username`. | `SERVER_PORT`, `JWT_SECRET` |
-| **Todos API** | Node.js | CRUD de tareas: `GET`, `POST` y `DELETE /todos`. Publica un evento por cada alta y baja. | `TODO_API_PORT`, `JWT_SECRET`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_CHANNEL`, `ZIPKIN_URL` |
-| **Log Message Processor** | Python | Worker que consume la cola y procesa los eventos de forma asíncrona. | `REDIS_HOST`, `REDIS_PORT`, `REDIS_CHANNEL`, `ZIPKIN_URL` |
-| **Redis** | , | Cola de mensajes entre Todos API (productor) y Log Message Processor (consumidor). | , |
+| **Frontend** | Vue.js | Web interface and proxy towards the APIs. The only publicly exposed component, through the Ingress the AWS Load Balancer Controller materialises as an ALB with an ACM certificate. | `PORT`, `AUTH_API_ADDRESS`, `TODOS_API_ADDRESS`, `ZIPKIN_URL` |
+| **Auth API** | Go | Authentication. `POST /login` validates credentials against Users API and issues a JWT. | `AUTH_API_PORT`, `USERS_API_ADDRESS`, `JWT_SECRET`, `ZIPKIN_URL` |
+| **Users API** | Java, Spring Boot | User profiles, read only: `GET /users` and `GET /users/:username`. | `SERVER_PORT`, `JWT_SECRET` |
+| **Todos API** | Node.js | Task CRUD: `GET`, `POST` and `DELETE /todos`. Publishes an event on every create and delete. | `TODO_API_PORT`, `JWT_SECRET`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_CHANNEL`, `ZIPKIN_URL` |
+| **Log Message Processor** | Python | Worker consuming the queue and processing the events asynchronously. | `REDIS_HOST`, `REDIS_PORT`, `REDIS_CHANNEL`, `ZIPKIN_URL` |
+| **Redis** | — | Message queue between Todos API (producer) and Log Message Processor (consumer). | — |
 
-## Flujos
+## Flows
 
-### Autenticación
+### Authentication
 
-El navegador entra por el Ingress y llega al Frontend, que expone `/login` como proxy hacia Auth API. Para validar las credenciales, Auth API pide el perfil a Users API (`GET /users/:username`) y lo compara contra su lista de credenciales permitidas. Si coincide, emite el JWT que usará el resto de la sesión.
+The browser enters through the Ingress and reaches the Frontend, which exposes `/login` as a proxy towards Auth API. To validate the credentials, Auth API requests the profile from Users API (`GET /users/:username`) and compares it against its list of allowed credentials. On a match it issues the JWT the rest of the session will use.
 
-> Para llamar a Users API, Auth API firma su propio token de servicio con el mismo `JWT_SECRET` y lo envía como `Bearer`. El secreto compartido cumple entonces dos funciones: valida los tokens de usuario y autentica la llamada entre servicios.
+> To call Users API, Auth API signs its own service token with the same `JWT_SECRET` and sends it as a `Bearer`. The shared secret therefore serves two purposes: it validates user tokens and it authenticates the call between services.
 
-### Operación sobre tareas
+### Task operations
 
-El Frontend usa el JWT del usuario para llamar a Todos API a través del proxy `/todos`. Todos API valida el token con el mismo secreto con el que Auth API lo firmó.
+The Frontend uses the user JWT to call Todos API through the `/todos` proxy. Todos API validates the token with the same secret Auth API signed it with.
 
-**Users API no recibe tráfico del Frontend.** El proxy del Frontend declara tres rutas: `/login`, `/todos` y `/zipkin`. Su único cliente es Auth API.
+**Users API receives no traffic from the Frontend.** The Frontend proxy declares three routes: `/login`, `/todos` and `/zipkin`. Its only client is Auth API.
 
-### Registro asíncrono
+### Asynchronous logging
 
-Cada alta y baja en Todos API publica un mensaje en el canal de Redis. Log Message Processor lo consume por su cuenta, de modo que el registro de la operación no bloquea la respuesta al usuario.
+Every create and delete in Todos API publishes a message on the Redis channel. Log Message Processor consumes it on its own, so recording the operation does not block the response to the user.
 
-### El secreto compartido
+### The shared secret
 
-Auth API firma los tokens; Users API y Todos API los verifican. Los tres necesitan el mismo valor de `JWT_SECRET`.
+Auth API signs the tokens; Users API and Todos API verify them. All three need the same `JWT_SECRET` value.
 
-Es el acoplamiento más fuerte del sistema. Rotarlo obliga a actualizar los tres servicios de forma coordinada, y durante la rotación los tokens emitidos con el valor anterior dejan de validar. Su gestión está descrita en [`environments.md`](environments.md#gestión-de-secretos), y nunca viaja en el código ni en texto plano dentro de un repositorio.
+It is the strongest coupling in the system. Rotating it requires updating the three services in a coordinated way, and during the rotation tokens issued with the previous value stop validating. Its management is described in [`environments.md`](environments.md#secrets-management), and it never travels in code or in plain text inside a repository.
 
-## Plataforma de soporte
+## Supporting platform
 
-**Registry: Amazon ECR.** Guarda las imágenes de los cinco servicios y lo comparten los tres ambientes. Entre ambientes cambia la versión de imagen que se despliega, con el mismo origen en todos los casos. Ver [ADR-001](decisions.md#adr-001-registry-amazon-ecr).
+**Registry: Amazon ECR.** Holds the images of the five services and is shared by the three environments. What changes between environments is the image version deployed, with the same origin in every case. See [ADR-001](decisions.md#adr-001-registry-amazon-ecr).
 
-**Integración continua: GitHub Actions.** Construye, prueba y publica las imágenes al registry. El diseño de las pipelines corresponde al área 04 y no se detalla aquí.
+**Continuous integration: GitHub Actions.** Builds, tests and publishes the images to the registry. Pipeline design belongs to area 04 and is not detailed here.
 
-**Observabilidad: Prometheus, Grafana, Zipkin y logs centralizados.** Métricas, dashboards por servicio, tracing distribuido y logs. El despliegue de este stack corresponde al área 07.
+**Observability: Prometheus, Grafana, Zipkin and centralised logs.** Metrics, per-service dashboards, distributed tracing and logs. Deploying this stack belongs to area 07.
 
-La observabilidad parte de una base existente. `auth-api` ya incluye instrumentación de tracing con Zipkin en `tracing.go`, todos los servicios leen `ZIPKIN_URL`, y el Frontend ya envía spans desde el navegador a través de su propio proxy `/zipkin`. El área 07 extiende ese punto de partida al resto de los servicios.
+Observability starts from an existing base. `auth-api` already includes Zipkin tracing instrumentation in `tracing.go`, every service reads `ZIPKIN_URL`, and the Frontend already sends spans from the browser through its own `/zipkin` proxy. Area 07 extends that starting point to the rest of the services.

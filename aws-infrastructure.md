@@ -1,203 +1,204 @@
-# Infraestructura física en AWS
+# Physical infrastructure on AWS
 
 | | |
 |---|---|
-| **Propósito** | Definir la capa física sobre la que corre Docket: cuenta, red, cómputo, registry, backend de estado, identidad y secretos. |
-| **Región** | `us-east-1` |
+| **Purpose** | Define the physical layer Docket runs on: account, network, compute, registry, state backend, identity and secrets. |
+| **Region** | `us-east-1` |
 
-![Infraestructura AWS de Docket](img/aws-infrastructure.png)
+![Docket AWS infrastructure](img/aws-infrastructure.png)
 
-Esta vista responde a sobre qué corre el clúster descrito en [`environments.md`](environments.md). Los componentes de la aplicación están en [`logical-architecture.md`](logical-architecture.md); las decisiones que sostienen este diseño, en [`decisions.md`](decisions.md).
+This view answers what the cluster described in [`environments.md`](environments.md) runs on. The application components are in [`logical-architecture.md`](logical-architecture.md); the decisions holding this design up are in [`decisions.md`](decisions.md).
 
-## Presupuesto
+## Budget
 
-La cuenta opera bajo el plan gratuito de AWS por créditos. El acceso a los servicios termina cuando se agota el saldo o cuando vence el plazo del plan, sin que se generen cargos. El presupuesto es por tanto la restricción de diseño principal.
+The account operates under the AWS free credit plan. Access to the services ends when the balance runs out or when the plan expires, without generating charges. The budget is therefore the primary design constraint.
 
-| Concepto | Valor |
+| Item | Value |
 |---|---|
-| Saldo disponible | 100 USD |
-| Saldo adicional alcanzable | 100 USD por completar 5 actividades guiadas de 20 USD cada una |
-| Ventana de trabajo del proyecto | 2 semanas |
+| Available balance | 100 USD |
+| Additional balance reachable | 100 USD for completing 5 guided activities worth 20 USD each |
+| Project working window | 2 weeks |
 
-Costo estimado de esta arquitectura encendida de forma continua durante 2 semanas (336 h) en `us-east-1`:
+Estimated cost of this architecture running continuously for 2 weeks (336 h) in `us-east-1`:
 
-| Recurso | Cálculo | USD |
+| Resource | Calculation | USD |
 |---|---|---|
-| Control plane de EKS | 0.10 USD/h | 33.60 |
-| 2 nodos `t3.medium` | 0.0416 USD/h cada uno | 27.95 |
-| NAT Gateway | 0.045 USD/h más tráfico procesado | 15.12 |
-| Application Load Balancer | 0.0225 USD/h más LCU | ~7.60 |
-| IPv4 públicas (2 del ALB, 1 del NAT) | 0.005 USD/h cada una | 5.04 |
-| EBS de los nodos (2 volúmenes gp3 de 20 GB) | 0.08 USD/GB-mes | ~1.50 |
+| EKS control plane | 0.10 USD/h | 33.60 |
+| 2 nodes | see [Compute](#compute) | 27.95 – 64.40 |
+| NAT Gateway | 0.045 USD/h plus processed traffic | 15.12 |
+| Application Load Balancer | 0.0225 USD/h plus LCU | ~7.60 |
+| Public IPv4 (2 for the ALB, 1 for the NAT) | 0.005 USD/h each | 5.04 |
+| Node EBS (2 gp3 volumes of 20 GB) | 0.08 USD/GB-month | ~1.50 |
 | S3, ECR, Route 53, Parameter Store | | ~1.50 |
-| **Total, 2 semanas 24/7** | | **~92** |
+| **Total, 2 weeks 24/7** | | **~92 – 128** |
 
-Con nodos `t3.small` el total baja a ~78 USD, a costa de capacidad. Ver [Cómputo](#cómputo).
+**Operational implication.** With 100 USD the margin over the estimate is thin to negative. Completing the 5 activities to reach 200 USD is a practical prerequisite before applying this architecture. The RDS or Aurora instance one of the activities asks for must be deleted as soon as it is completed, because it is the only resource in that set capable of consuming credits steadily if left running.
 
-**Implicación operativa.** Con 100 USD el margen es de apenas 8 USD sobre el costo estimado. Completar las 5 actividades para llegar a 200 USD es un prerrequisito práctico antes de aplicar esta arquitectura. La instancia de RDS o Aurora que pide una de las actividades debe eliminarse en cuanto se complete, porque es el único recurso de ese conjunto capaz de consumir créditos de forma sostenida si queda encendido.
+**The saving lever.** The design is meant to be destroyed and recreated ([ADR-010](decisions.md#adr-010-ephemeral-infrastructure-with-split-state)). Shutting down outside working hours cuts the cost to less than half, and covers the FinOps stretch goal in the brief.
 
-**Palanca de ahorro.** El diseño está pensado para destruirse y recrearse ([ADR-010](decisions.md#adr-010-infraestructura-efímera-con-estado-dividido)). Apagar fuera del horario de trabajo reduce el costo a menos de la mitad, y cubre la meta extra de FinOps del brief.
+## Network
 
-## Red
+EKS requires subnets in at least two availability zones, so the VPC is deployed across `us-east-1a` and `us-east-1b`.
 
-EKS exige subredes en al menos dos zonas de disponibilidad, así que la VPC se despliega sobre `us-east-1a` y `us-east-1b`.
-
-| Subred | CIDR | AZ | Contenido | Tabla de ruta |
+| Subnet | CIDR | AZ | Contents | Route table |
 |---|---|---|---|---|
-| Pública A | `10.0.0.0/24` | `us-east-1a` | ALB, NAT Gateway | `0.0.0.0/0` hacia el Internet Gateway |
-| Pública B | `10.0.1.0/24` | `us-east-1b` | ENI del ALB | `0.0.0.0/0` hacia el Internet Gateway |
-| Privada A | `10.0.10.0/24` | `us-east-1a` | Nodo del clúster | `0.0.0.0/0` hacia el NAT Gateway |
-| Privada B | `10.0.11.0/24` | `us-east-1b` | Nodo del clúster | `0.0.0.0/0` hacia el NAT Gateway |
+| Public A | `10.0.0.0/24` | `us-east-1a` | ALB, NAT Gateway | `0.0.0.0/0` to the Internet Gateway |
+| Public B | `10.0.1.0/24` | `us-east-1b` | ALB ENI | `0.0.0.0/0` to the Internet Gateway |
+| Private A | `10.0.10.0/24` | `us-east-1a` | Cluster node | `0.0.0.0/0` to the NAT Gateway |
+| Private B | `10.0.11.0/24` | `us-east-1b` | Cluster node | `0.0.0.0/0` to the NAT Gateway |
 
-Los nodos viven en subredes privadas, sin IP pública y sin ser alcanzables desde internet. Su tráfico de salida, que incluye el pull de imágenes y las llamadas a la API de AWS, pasa por el NAT Gateway. El único componente expuesto es el ALB.
+The nodes live in private subnets, with no public IP and unreachable from the internet. Their egress traffic, which includes image pulls and calls to the AWS API, goes through the NAT Gateway. The only exposed component is the ALB.
 
-Se despliega **un solo NAT Gateway**, en la subred pública A, compartido por ambas zonas. La topología de referencia usa uno por zona, y duplicar el componente añadiría 15 USD sobre la ventana del proyecto. La consecuencia de esta concesión: si `us-east-1a` deja de estar disponible, los nodos de `us-east-1b` pierden su salida a internet. Ver [ADR-005](decisions.md#adr-005-red-multi-az-con-un-solo-nat-gateway).
+**A single NAT Gateway** is deployed, in public subnet A, shared by both zones. The reference topology uses one per zone, and duplicating the component would add 15 USD over the project window. The consequence of that concession: if `us-east-1a` becomes unavailable, the nodes in `us-east-1b` lose their internet egress. See [ADR-005](decisions.md#adr-005-multi-az-network-with-a-single-nat-gateway).
 
 ### Security groups
 
-| Security group | Entrada | Salida |
+| Security group | Ingress | Egress |
 |---|---|---|
-| `sg-alb` | `80/tcp` y `443/tcp` desde `0.0.0.0/0` | Hacia `sg-nodos`, en el puerto del contenedor del Frontend |
-| `sg-nodos` | Desde `sg-alb` en el puerto del contenedor, y desde sí mismo para el tráfico entre nodos | Todo |
+| `sg-alb` | `80/tcp` and `443/tcp` from `0.0.0.0/0` | To `sg-nodes`, on the Frontend container port |
+| `sg-nodes` | From `sg-alb` on the container port, and from itself for node-to-node traffic | All |
 
-Ninguna regla abre `22/tcp` en ninguna parte. El acceso administrativo se resuelve por SSM. Ver [Acceso administrativo](#acceso-administrativo).
+No rule opens `22/tcp` anywhere. Administrative access is resolved through SSM. See [Administrative access](#administrative-access).
 
-**Modo de registro de targets.** El AWS Load Balancer Controller registra los targets del ALB en modo `ip`, que es su comportamiento por defecto sobre EKS y aprovecha que el CNI de AWS asigna a cada pod una dirección real de la VPC. El ALB entrega el tráfico directamente al pod, sin pasar por un NodePort ni por kube-proxy.
+**Target registration mode.** The AWS Load Balancer Controller registers ALB targets in `ip` mode, its default behaviour on EKS, taking advantage of the AWS CNI assigning each pod a real VPC address. The ALB delivers traffic straight to the pod, without going through a NodePort or kube-proxy.
 
-De ahí viene la regla de `sg-nodos`: el puerto que hay que abrir es el del contenedor, y el rango de NodePort queda sin uso. Si en algún momento se cambia a modo `instance` con la anotación `alb.ingress.kubernetes.io/target-type`, esta regla tiene que revisarse.
+That is where the `sg-nodes` rule comes from: the port to open is the container port, and the NodePort range goes unused. If this ever changes to `instance` mode with the `alb.ingress.kubernetes.io/target-type` annotation, this rule has to be revisited.
 
-## Cómputo
+## Compute
 
-Amazon EKS con un node group gestionado de 2 nodos, uno por zona de disponibilidad, en las subredes privadas.
+Amazon EKS with a managed node group of 2 nodes, one per availability zone, in the private subnets.
 
-**Dimensionamiento.** El clúster sostiene tres namespaces con la aplicación completa, es decir 5 servicios más Redis en cada uno, lo que suma 18 pods de aplicación. A eso se añaden Argo CD, External Secrets Operator, AWS Load Balancer Controller y el stack de observabilidad. La restricción que decide el tamaño de instancia es el límite de pods por nodo que impone el CNI de EKS según las ENI disponibles:
+**Sizing.** The cluster holds three namespaces with the complete application, that is 5 services plus Redis in each, totalling 18 application pods. On top of that come Argo CD, External Secrets Operator, the AWS Load Balancer Controller and the observability stack. The constraint deciding the instance size is the pods-per-node limit the EKS CNI imposes based on available ENIs.
 
-| Tipo | RAM | Pods máximos por nodo | 2 nodos |
-|---|---|---|---|
-| `t3.small` | 2 GiB | 11 | 22 |
-| `t3.medium` | 4 GiB | 17 | 34 |
+**A second constraint decides it in practice.** The account is on the AWS free plan, which only allows launching instance types eligible for the free tier. A type outside that list makes `RunInstances` fail in a loop with no `health.issue` reported: the symptom is an indefinite `Still creating...` and the error appears only in CloudTrail.
 
-Con 18 pods de aplicación más los add-ons del clúster, dos `t3.small` quedan por debajo del requerimiento. El diseño usa **`t3.medium`**, con un costo adicional de ~14 USD sobre la ventana del proyecto.
+| Type | RAM | Pods per node | 2 nodes | USD/hour |
+|---|---|---|---|---|
+| `t3.small` | 2 GiB | 11 | 22 | 0.0208 |
+| `c7i-flex.large` | 4 GiB | 29 | 58 | 0.0848 |
+| `m7i-flex.large` | 8 GiB | 29 | 58 | 0.0958 |
+
+With 18 application pods plus the cluster add-ons, two `t3.small` fall below the requirement. The implementation uses **`m7i-flex.large`**.
 
 ## Registry: Amazon ECR
 
-Cinco repositorios privados, uno por microservicio. Los nodos hacen `pull` con el rol de instancia del node group, sin credenciales estáticas ni `imagePullSecrets` que rotar.
+Five private repositories, one per microservice. The nodes `pull` with the node group instance role, with no static credentials and no `imagePullSecrets` to rotate.
 
-La capa gratuita de ECR cubre 500 MB al mes, que es poco para cinco servicios acumulando tags. Hace falta una política de ciclo de vida que conserve solo las últimas N imágenes por repositorio. Definirla corresponde a la historia de Terraform.
+The ECR free tier covers 500 MB per month, which is little for five services accumulating tags. A lifecycle policy keeping only the last N images per repository is required, and is implemented in the `registry` module.
 
-## Backend de estado de Terraform
+## Terraform state backend
 
 ```hcl
 terraform {
   backend "s3" {
-    bucket       = "docket-tfstate-<sufijo>"
+    bucket       = "docket-tfstate-<suffix>"
     key          = "<stack>/terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true
-    use_lockfile = true   # bloqueo nativo de S3
+    use_lockfile = true   # native S3 locking
   }
 }
 ```
 
-El bloqueo usa un objeto `.tflock` en el mismo bucket, mediante escrituras condicionales de S3. El argumento `dynamodb_table` está deprecado en el backend S3 desde Terraform 1.11 y HashiCorp lo removerá en una versión menor futura, así que el diseño no crea tabla de DynamoDB. Ver [ADR-009](decisions.md#adr-009-bloqueo-de-estado-nativo-de-s3).
+Locking uses a `.tflock` object in the same bucket, through S3 conditional writes. The `dynamodb_table` argument has been deprecated in the S3 backend since Terraform 1.11 and HashiCorp will remove it in a future minor version, so the design creates no DynamoDB table. See [ADR-009](decisions.md#adr-009-native-s3-state-locking).
 
-Permisos mínimos que exige el backend:
+Minimum permissions the backend requires:
 
-| Acción | Recurso |
+| Action | Resource |
 |---|---|
 | `s3:ListBucket` | `arn:aws:s3:::<bucket>` |
 | `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject` | `arn:aws:s3:::<bucket>/<key>` |
 | `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject` | `arn:aws:s3:::<bucket>/<key>.tflock` |
 
-El bucket lleva versionado activo, cifrado en reposo y bloqueo de acceso público.
+The bucket carries versioning, encryption at rest and public access blocking.
 
-### Separación de estado persistente y efímero
+### Separating persistent and ephemeral state
 
-La infraestructura se destruye y se recrea de forma rutinaria, así que el Terraform se divide en dos stacks con estados independientes:
+The infrastructure is destroyed and recreated routinely, so the Terraform is split into stacks with independent state:
 
-| Stack | Contiene | Ciclo de vida |
+| Stack | Contains | Lifecycle |
 |---|---|---|
-| `persistente` | Bucket de estado, ECR, zona de Route 53, certificado de ACM, OIDC provider, IAM roles y parámetros de SSM | Se crea una vez y permanece |
-| `efimero` | VPC, subredes, NAT, EKS, node group, ALB | `apply` y `destroy` a demanda |
+| `persistent` | ECR, Route 53 zone, ACM certificate, OIDC provider, IAM roles | Created once and stays |
+| `ephemeral` | VPC, subnets, NAT, EKS, node group, IRSA roles | `apply` and `destroy` on demand |
+| `platform` | Namespaces, quotas, RBAC, network policies, controllers | Rebuilt with the cluster |
+| `environments/*` | SSM parameter tree per environment | Stays |
 
-Sin esta separación, un `destroy` arrastraría el registry, los secretos y la zona DNS. Ver [ADR-010](decisions.md#adr-010-infraestructura-efímera-con-estado-dividido).
+Without this separation, a `destroy` would drag the registry, the secrets and the DNS zone with it. See [ADR-010](decisions.md#adr-010-ephemeral-infrastructure-with-split-state).
 
-## Identidad y acceso
+## Identity and access
 
-| Principal | Cómo obtiene credenciales | Para qué |
+| Principal | How it obtains credentials | For what |
 |---|---|---|
-| **GitHub Actions, job de build** | Federación OIDC; asume `GitHubActionsBuildRole` | Publicar imágenes en ECR |
-| **GitHub Actions, job de infraestructura** | Federación OIDC; asume `GitHubActionsDeployRole` | Ejecutar `terraform apply` |
-| **Nodos del clúster** | Rol de instancia del node group | `pull` desde ECR |
-| **External Secrets Operator** | IRSA, con un rol de IAM asociado a su service account | Leer parámetros de SSM |
-| **AWS Load Balancer Controller** | IRSA | Crear y configurar el ALB |
-| **Personas del equipo** | Usuario IAM del proyecto | Consola y `kubectl` mediante EKS access entries |
+| **GitHub Actions, build job** | OIDC federation; assumes `GitHubActionsBuildRole` | Publishing images to ECR |
+| **GitHub Actions, infrastructure job** | OIDC federation; assumes `GitHubActionsDeployRole` | Running `terraform apply` |
+| **Cluster nodes** | Node group instance role | `pull` from ECR |
+| **External Secrets Operator** | IRSA, with an IAM role bound to its service account | Reading SSM parameters |
+| **AWS Load Balancer Controller** | IRSA | Creating and configuring the ALB |
+| **Team members** | Project IAM user | Console and `kubectl` through EKS access entries |
 
-**Dos roles, no uno.** El job que construye imágenes no necesita permisos para crear VPCs ni clústeres, así que se separa en un rol propio limitado a `ecr:*` sobre los cinco repositorios. El rol amplio, con permisos sobre EC2, VPC, IAM, S3, EKS y Route 53, queda reservado al job que ejecuta Terraform. Esta separación responde al criterio de accesos limitados según necesidad de la historia `18` del tablero.
+**Two roles, not one.** The job that builds images does not need permission to create VPCs or clusters, so it is separated into its own role limited to ECR on the five repositories. The broad role, with permissions over EC2, VPC, IAM, S3, EKS and Route 53, is reserved for the job that runs Terraform. This separation answers the least-privilege criterion of card `18`.
 
-La política de confianza de cada rol se restringe al repositorio y la rama concretos, con una condición sobre `sub` del tipo `repo:<org>/<repo>:ref:refs/heads/<rama>`. Un rol asumible por cualquier repositorio de la organización equivale a una credencial compartida. Ver [ADR-011](decisions.md#adr-011-credenciales-de-pipeline-con-oidc-e-iam-role).
+The trust policy of each role is restricted to the specific repository and branch, with a condition on `sub`. GitHub issues that subject in immutable form, including numeric organisation and repository identifiers. A role assumable by any repository in the organisation is equivalent to a shared credential. See [ADR-011](decisions.md#adr-011-pipeline-credentials-with-oidc-and-an-iam-role).
 
-### Acceso administrativo
+### Administrative access
 
-El acceso puntual a un nodo se hace con **SSM Session Manager**: la sesión se inicia contra la API de AWS, se autoriza por IAM y queda registrada en CloudTrail, sin abrir ningún puerto de entrada. La administración del clúster se hace con `kubectl` contra el endpoint de EKS, autorizado también por IAM. Ver [ADR-006](decisions.md#adr-006-acceso-administrativo-con-ssm-session-manager).
+Occasional access to a node is done with **SSM Session Manager**: the session starts against the AWS API, is authorised by IAM and is recorded in CloudTrail, without opening any inbound port. Cluster administration is done with `kubectl` against the EKS endpoint, also authorised by IAM. See [ADR-006](decisions.md#adr-006-administrative-access-with-ssm-session-manager).
 
-## Secretos
+## Secrets
 
-Los secretos de la aplicación, entre ellos el `JWT_SECRET` compartido, viven en **SSM Parameter Store** como `SecureString`, fuera del clúster. Dentro del clúster, **External Secrets Operator** los lee mediante IRSA y los materializa como `Secret` de Kubernetes en cada namespace.
+The application secrets, among them the shared `JWT_SECRET`, live in **SSM Parameter Store** as `SecureString`, outside the cluster. Inside the cluster, **External Secrets Operator** reads them through IRSA and materialises them as Kubernetes `Secret` objects in each namespace.
 
-El motivo de fondo es el ciclo de vida efímero del clúster. Un mecanismo que guarde la llave de descifrado dentro del clúster, como Sealed Secrets, pierde esa llave en cada `destroy` y deja inservibles los secretos cifrados del repositorio. Ver [ADR-002](decisions.md#adr-002-secretos-con-external-secrets-y-ssm-parameter-store).
+The underlying reason is the ephemeral lifecycle of the cluster. A mechanism that keeps the decryption key inside the cluster, such as Sealed Secrets, loses that key on every `destroy` and leaves the encrypted secrets in the repository useless. See [ADR-002](decisions.md#adr-002-secrets-with-external-secrets-and-ssm-parameter-store).
 
-El árbol de parámetros se segmenta por ambiente (`/docket/dev/...`, `/docket/staging/...`, `/docket/prod/...`) y el rol de IRSA de cada namespace tiene permiso de lectura solo sobre su propio prefijo.
+The parameter tree is segmented by environment (`/docket/dev/...`, `/docket/staging/...`, `/docket/prod/...`) and the IRSA role of each namespace has read permission only over its own prefix.
 
-## Flujo de cambio de infraestructura
+Parameters are written with the write-only argument `value_wo`, so the value never reaches Terraform state or the plan file.
 
-1. Un push al repo de infraestructura dispara GitHub Actions.
-2. El job de validación corre `terraform plan` y `apply` contra **Floci** en el runner, con un provider `aws` aliasado a `localhost:4566`. Ahí se detectan errores de sintaxis, referencias rotas y políticas mal formadas, sin tocar la cuenta real.
-3. Superada la validación, el job de infraestructura solicita el token OIDC, asume `GitHubActionsDeployRole` y corre `terraform apply` contra la cuenta real.
+## Infrastructure change flow
 
-Este flujo corre en paralelo al despliegue de la aplicación. Argo CD sincroniza el repositorio de manifiestos por su cuenta y la pipeline de Terraform nunca aplica cambios dentro del clúster. Ver [`environments.md`](environments.md#flujo-gitops).
+1. A push to the infrastructure repository triggers GitHub Actions.
+2. The Terraform CI workflow validates formatting and provider schemas, runs TFLint, Trivy and Checkov, and evaluates real plan JSON against the Docket OPA policy. Syntax errors, broken references and malformed policies are caught here, without touching the real account. See [ADR-007](decisions.md#adr-007-terraform-validation-with-ci-quality-gates).
+3. Once validation passes, the infrastructure job requests the OIDC token, assumes `GitHubActionsDeployRole` and runs `terraform apply` against the real account.
 
-The Terraform CI workflow validates formatting and provider schemas, runs
-TFLint, Trivy, and Checkov, and evaluates real plan JSON against the Docket OPA
-policy. See [ADR-007](decisions.md#adr-007-terraform-validation-with-ci-quality-gates).
+This flow runs in parallel with the application deployment. Argo CD synchronises the manifest repository on its own and the Terraform pipeline never applies changes inside the cluster. See [`environments.md`](environments.md#gitops-flow).
 
-## Dominio, DNS y TLS
+## Domain, DNS and TLS
 
-Route 53 aloja la zona del dominio comprado por el equipo. Cada ambiente resuelve por un host distinto hacia el mismo ALB, mediante registros **ALIAS**, y el Ingress separa el tráfico por cabecera `Host`.
+Route 53 hosts the zone of the domain purchased by the team. Each environment resolves through a different host towards the same ALB, using **ALIAS** records, and the Ingress separates traffic by `Host` header.
 
-| Ambiente | Host |
+| Environment | Host |
 |---|---|
-| `prod` | `docket.<dominio>` |
-| `staging` | `staging.docket.<dominio>` |
-| `dev` | `dev.docket.<dominio>` |
+| `prod` | `docket.<domain>` |
+| `staging` | `staging.docket.<domain>` |
+| `dev` | `dev.docket.<domain>` |
 
-El certificado TLS lo emite **AWS Certificate Manager**, con validación por DNS contra la misma zona de Route 53, y termina en el ALB. ACM entrega certificados públicos sin costo y los renueva de forma automática mientras exista el registro de validación en la zona. Ver [ADR-008](decisions.md#adr-008-dns-en-route-53-y-tls-con-acm).
+The TLS certificate is issued by **AWS Certificate Manager**, validated by DNS against the same Route 53 zone, and terminates at the ALB. ACM issues public certificates at no cost and renews them automatically while the validation record exists in the zone. See [ADR-008](decisions.md#adr-008-dns-in-route-53-and-tls-with-acm).
 
-**Alcance del cifrado.** El tráfico viaja cifrado entre el usuario y el ALB. Del ALB hacia el pod circula como HTTP plano dentro de la VPC. Si el área 08 exige cifrado de extremo a extremo, hay que habilitar re-encriptación hacia el target group, algo que este diseño todavía no contempla.
+**Encryption scope.** Traffic travels encrypted between the user and the ALB. From the ALB to the pod it flows as plain HTTP inside the VPC. If area 08 requires end-to-end encryption, re-encryption towards the target group has to be enabled, which this design does not yet contemplate.
 
-El ALB se recrea con cada `apply` y cambia de nombre DNS. Por eso los registros se gestionan desde Terraform o con `external-dns`.
+The ALB is recreated on every cluster cycle and changes DNS name. That is why the records are managed by `external-dns` from inside the cluster rather than by Terraform: records managed by Terraform would force a re-apply after every start-up.
 
-Queda un paso manual, que se ejecuta una sola vez: delegar los nameservers del dominio en el registrador hacia los cuatro que Route 53 asigne a la zona.
+One manual step remains, executed once: delegating the domain nameservers at the registrar to the four Route 53 assigns to the zone.
 
-## Procedimiento de apagado y encendido
+## Shutdown and start-up procedure
 
-El ciclo de `destroy` y `apply` tiene un orden obligatorio, porque no todos los recursos los crea Terraform.
+The `destroy` and `apply` cycle has a mandatory order, because not every resource is created by Terraform.
 
-**El problema.** El ALB no lo crea Terraform. Lo crea el AWS Load Balancer Controller desde dentro del clúster, a partir de los objetos `Ingress`, así que no figura en el estado de Terraform. Un `terraform destroy` con los `Ingress` todavía presentes elimina el clúster junto con el controller, que muere sin alcanzar a borrar el balanceador. El resultado son un ALB huérfano facturando por hora, sus security groups asociados y, con frecuencia, un `destroy` que falla al no poder eliminar la VPC porque esos security groups siguen en uso.
+**The problem.** The ALB is not created by Terraform. The AWS Load Balancer Controller creates it from inside the cluster, out of the `Ingress` objects, so it does not appear in Terraform state. A `terraform destroy` with the `Ingress` objects still present removes the cluster along with the controller, which dies before it can delete the load balancer. The result is an orphaned ALB billing by the hour, its associated security groups, and frequently a `destroy` that fails because it cannot delete the VPC while those security groups are still in use.
 
-**Orden de apagado.**
+**Shutdown order.** Automated in `make teardown`:
 
-1. Eliminar las `Application` de Argo CD o los objetos `Ingress` de los tres namespaces.
-2. Esperar a que el controller elimine el ALB y sus security groups. Verificarlo en la consola de EC2, sección Load Balancers, antes de continuar.
-3. Ejecutar `terraform destroy` sobre el stack `efimero`.
-4. Dejar intacto el stack `persistente`.
+1. Delete the Argo CD `Application` objects and the `Ingress` objects of the three namespaces, then wait for external-dns to withdraw its records.
+2. Destroy the `platform` stack, whose namespaces are now empty.
+3. Destroy the `ephemeral` stack.
+4. Verify nothing was left billing.
 
-**Orden de encendido.**
+**Start-up order.**
 
-1. Ejecutar `terraform apply` sobre el stack `efimero`.
-2. Instalar los add-ons del clúster, entre ellos Argo CD, el AWS Load Balancer Controller y External Secrets Operator, desde el bootstrap declarado.
-3. Argo CD sincroniza los manifiestos y crea los `Ingress`.
-4. El controller crea el ALB, con un nombre DNS nuevo.
-5. Actualizar los registros ALIAS de Route 53 para que apunten al ALB nuevo. Terraform o `external-dns` se encargan de este paso.
+1. `terraform apply` on the `ephemeral` stack.
+2. `terraform apply` on the `platform` stack, which installs the namespaces and the controllers, Argo CD among them.
+3. Argo CD synchronises the manifests and creates the `Ingress` objects.
+4. The controller creates the ALB, with a new DNS name.
+5. `external-dns` updates the Route 53 ALIAS records to point at the new ALB.
 
-**Verificación de que no quedó nada facturando.** Después de cada apagado conviene revisar que no queden balanceadores, IP elásticas sin asociar ni volúmenes EBS huérfanos, porque son los tres recursos que sobreviven con más facilidad a un `destroy` incompleto y consumen créditos en silencio.
+**Verifying nothing is still billing.** After every shutdown, check that no load balancers, unassociated elastic IPs or orphaned EBS volumes remain, because those are the three resources that most easily survive an incomplete `destroy` and consume credits silently. `make orphans` automates the check.

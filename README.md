@@ -1,51 +1,52 @@
-# Arquitectura de Docket
+# Docket architecture
 
-Documentación de arquitectura de **Docket**, la plataforma de gestión de tareas para una firma legal.
+Architecture documentation for **Docket**, the task management platform for a legal firm.
 
-Este repositorio es el entregable de documentación del proyecto. Contiene la arquitectura de referencia hacia la que se construye y el registro de las decisiones que la sostienen. Es la fuente de la que derivan el trabajo de infraestructura como código, el diseño de las pipelines y la operación de la plataforma.
+This repository is the documentation deliverable of the project. It holds the reference architecture the platform is built towards and the record of the decisions supporting it. It is the source from which the infrastructure-as-code work, the pipeline design and the platform operation derive.
 
+## Documents
 
-## Documentos
-
-| Documento | Contenido | Estado |
+| Document | Contents | Status |
 |---|---|---|
-| [`logical-architecture.md`](logical-architecture.md) | Arquitectura lógica: los cinco microservicios, la cola de mensajes, el grafo de llamadas y la plataforma de soporte. | Componentes verificados contra el código |
-| [`environments.md`](environments.md) | Despliegue por ambiente: namespaces, límites entre `dev`, `staging` y `prod`, flujo GitOps, secretos y DNS. | Objetivo |
-| [`aws-infrastructure.md`](aws-infrastructure.md) | Capa física en AWS: presupuesto, red multi-AZ, EKS, registry, backend de estado, identidad y secretos. | Objetivo |
-| [`decisions.md`](decisions.md) | Registro de decisiones (ADR) con contexto, consecuencias y alternativas descartadas. | Vigente |
+| [`logical-architecture.md`](logical-architecture.md) | Logical architecture: the five microservices, the message queue, the call graph and the supporting platform. | Components verified against the code |
+| [`environments.md`](environments.md) | Deployment per environment: namespaces, boundaries between `dev`, `staging` and `prod`, GitOps flow, secrets and DNS. | Target |
+| [`aws-infrastructure.md`](aws-infrastructure.md) | Physical layer on AWS: budget, multi-AZ network, EKS, registry, state backend, identity and secrets. | Target |
+| [`decisions.md`](decisions.md) | Decision record (ADR) with context, consequences and rejected alternatives. | Current |
 
-## Cómo leer esta documentación
+## How to read this documentation
 
-Los tres documentos describen el mismo sistema en tres niveles, del más abstracto al más concreto:
+The three documents describe the same system at three levels, from the most abstract to the most concrete:
 
-1. **`logical-architecture.md`**: qué piezas hay y cómo se comunican, sin entrar en dónde corren.
-2. **`environments.md`**: cómo se separan los ambientes dentro de Kubernetes y cómo avanza un cambio hasta producción.
-3. **`aws-infrastructure.md`**: sobre qué recursos de AWS corre todo lo anterior y cuánto cuesta.
+1. **`logical-architecture.md`**: which pieces exist and how they communicate, without going into where they run.
+2. **`environments.md`**: how environments are separated inside Kubernetes and how a change advances to production.
+3. **`aws-infrastructure.md`**: which AWS resources everything above runs on, and what it costs.
 
-`decisions.md` es transversal. Cada afirmación de diseño en los otros tres enlaza al ADR que la justifica.
+`decisions.md` cuts across all three. Every design statement in the others links to the ADR that justifies it.
 
-## Condiciones que enmarcan el diseño
+## Conditions framing the design
 
-| Condición | Valor |
+| Condition | Value |
 |---|---|
-| Cuenta AWS | Plan gratuito por créditos: 100 USD, ampliables a 200 USD con 5 actividades guiadas |
-| Región | `us-east-1` |
-| Modo de operación | Infraestructura efímera, con `destroy` y `apply` rutinarios |
+| AWS account | Free credit plan: 100 USD, extendable to 200 USD with 5 guided activities |
+| Region | `us-east-1` |
+| Operating mode | Ephemeral infrastructure, with routine `destroy` and `apply` |
 
-Estas condiciones determinan [ADR-002](decisions.md#adr-002-secretos-con-external-secrets-y-ssm-parameter-store), [ADR-004](decisions.md#adr-004-cómputo-amazon-eks), [ADR-005](decisions.md#adr-005-red-multi-az-con-un-solo-nat-gateway) y [ADR-010](decisions.md#adr-010-infraestructura-efímera-con-estado-dividido).
+These conditions determine [ADR-002](decisions.md#adr-002-secrets-with-external-secrets-and-ssm-parameter-store), [ADR-004](decisions.md#adr-004-compute-amazon-eks), [ADR-005](decisions.md#adr-005-multi-az-network-with-a-single-nat-gateway) and [ADR-010](decisions.md#adr-010-ephemeral-infrastructure-with-split-state).
 
-## Cómo usar esta arquitectura
+## How to use this architecture
 
-- **Para infraestructura como código:** el presupuesto, la topología de red y la división de stacks están en `aws-infrastructure.md`. La topología de namespaces está en `environments.md`.
-- **Para las pipelines:** `environments.md` describe los controles de promoción, e `aws-infrastructure.md` el flujo de cambio de infraestructura y el modelo de credenciales.
-- **Para operación:** `logical-architecture.md` describe qué hace cada servicio y de qué depende. Los otros dos describen dónde corre cada cosa y cómo se accede.
+- **For infrastructure as code:** the budget, the network topology and the stack split are in `aws-infrastructure.md`. The namespace topology is in `environments.md`.
+- **For the pipelines:** `environments.md` describes the promotion controls, and `aws-infrastructure.md` the infrastructure change flow and the credential model.
+- **For operations:** `logical-architecture.md` describes what each service does and what it depends on. The other two describe where each thing runs and how it is reached.
 
-## Diagramas
+## Diagrams
 
-| Diagrama | Imagen | Documento que lo explica | Fuente editable |
+| Diagram | Image | Document explaining it | Editable source |
 |---|---|---|---|
-| Arquitectura lógica | [`img/logical-architecture.png`](img/logical-architecture.png) | [`logical-architecture.md`](logical-architecture.md) | Eraser |
-| Despliegue por ambiente | [`img/environments.png`](img/environments.png) | [`environments.md`](environments.md) | Eraser |
-| Infraestructura AWS | [`img/aws-infrastructure.png`](img/aws-infrastructure.png) | [`aws-infrastructure.md`](aws-infrastructure.md) | Lucidchart |
+| Logical architecture | [`img/logical-architecture.png`](img/logical-architecture.png) | [`logical-architecture.md`](logical-architecture.md) | Eraser |
+| Deployment per environment | [`img/environments.png`](img/environments.png) | [`environments.md`](environments.md) | Eraser |
+| AWS infrastructure | [`img/aws-infrastructure.png`](img/aws-infrastructure.png) | [`aws-infrastructure.md`](aws-infrastructure.md) | Lucidchart |
 
-Los PNG de `img/` son la versión publicada y viajan con el repositorio. La fuente editable de cada diagrama vive en la herramienta indicada. Cuando se modifique un diagrama hay que reexportar el PNG conservando el mismo nombre de archivo, para que los documentos que lo embeben sigan resolviendo.
+The PNGs in `img/` are the published version and travel with the repository. The editable source of each diagram lives in the tool indicated. When a diagram changes, the PNG must be re-exported under the same file name so the documents embedding it keep resolving.
+
+> The diagrams are still labelled in Spanish. Re-exporting them in English is pending; it requires the editable sources in Eraser and Lucidchart, not just this repository.
