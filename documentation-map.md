@@ -30,6 +30,13 @@ The reference architecture and the decisions behind it.
 | `modules/*/README.md` | One per module: inputs, outputs and the decisions inside it | 02 |
 | `stacks/*/README.md` | One per stack: state key, lifecycle, what it contains | 02 |
 
+### `docket-terraform-modules` — reusable modules, public
+
+| Document | Contents | Area |
+|---|---|---|
+| `README.md` | What the repository holds, why it is public, and how to consume a module by tag | 02 |
+| `modules/*/README.md` | One per module: inputs, outputs and the decisions inside it | 02 |
+
 ### `docket-gitops` — deployment manifests
 
 | Document | Contents | Area |

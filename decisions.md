@@ -32,6 +32,7 @@ Statuses: **Accepted** · **Assumption** (taken in the absence of guidance to th
 | [009](#adr-009-native-s3-state-locking) | Native S3 state locking | Accepted |
 | [010](#adr-010-ephemeral-infrastructure-with-split-state) | Ephemeral infrastructure with split state | Accepted |
 | [011](#adr-011-pipeline-credentials-with-oidc-and-an-iam-role) | Pipeline credentials with OIDC and an IAM role | Accepted |
+| [012](#adr-012-modules-in-their-own-repository-versioned-by-tag) | Modules in their own repository, versioned by tag | Accepted |
 
 ---
 
@@ -246,6 +247,43 @@ Application secrets are resolved by [ADR-002](#adr-002-secrets-with-external-sec
 - The deploy role currently holds a broad policy. A scoped candidate and a plan-only role exist alongside it, unattached, pending a CloudTrail-backed apply and teardown cycle to confirm the action set.
 
 **Rejected alternative.** HashiCorp Vault as a single secrets manager. It covers the same scope as OIDC and Parameter Store combined, and requires operating a third system that itself needs initial credentials. It remains available as a learning stretch goal.
+
+---
+
+## ADR-012 Modules in their own repository, versioned by tag
+
+**Status:** Accepted.
+
+**Context.** The Terraform modules lived in `docket-infrastructure` and were consumed by relative path. That means every stack always uses whatever is on `main`: there is no way to run one version in production while a change is exercised in development, and a module edit reaches all three environments the moment it merges.
+
+Measured before deciding: 11 of 36 commits in that repository touched `modules/` and `stacks/` together, and the coupling was not confined to the early scaffolding. That is the signal that the modules were still co-evolving with their only consumer, which is the usual argument for *not* splitting.
+
+**Decision.** Two repositories, following the Gruntwork `infrastructure-modules` and `infrastructure-live` split:
+
+| Repository | Holds | Visibility |
+|---|---|---|
+| `docket-terraform-modules` | The eight reusable modules, versioned by tag | **Public** |
+| `docket-infrastructure` | The seven stacks: the live infrastructure | Private |
+
+Stacks consume modules as `git::…//modules/<name>?ref=v1.0.0`. Each environment pins independently, so promotion is a one-line change to a `ref` in a pull request.
+
+**Why public.** `terraform init` has to clone the modules repository from CI. A private one needs a static credential in the pipeline, which is what [ADR-011](#adr-011-pipeline-credentials-with-oidc-and-an-iam-role) exists to avoid. Public keeps that posture, and costs a hard constraint in exchange: nothing internal may ever land there. The `exposure` job fails the build on an account identifier, an account-qualified ARN, the domain, or credential material, and the split itself was gated on it — one commit message naming the project domain was rewritten out of the history before the first push, because published history cannot be retracted.
+
+**Consequences.**
+- Production can run an older module version than development, deliberately.
+- A module change no longer reaches an environment until someone bumps its `ref`. That is the point, and it is also friction: testing a module change against a stack means pointing at a branch first and turning it into a tag before the consumer merges.
+- The modules stopped naming their own resources after this project. Every one takes a `name_prefix`, which is what made them publishable at all.
+- Tags are repository-wide: `v1.1.0` versions all eight modules together. Accepted at this size. If they start releasing at visibly different cadences, the answer is component tags (`network/v1.2.0`), not more repositories.
+- Renovate opens a pull request per environment when a release exists, and is disabled for production, so a version reaches prod because a person promoted it.
+- The split changed no infrastructure. The `ephemeral` plan was diffed against the same baseline three times — before parameterising the names, after it, and after repointing the sources — and was identical each time. Changing a `source` does not change a resource address, so no `moved` blocks were needed.
+
+**Rejected alternatives.**
+
+*Keeping one repository.* Simpler, and it is what the 31% coupling measurement argued for. Rejected because the coupling is a symptom of modules that had no way to be versioned, not a reason to leave them that way, and because per-environment promotion is what areas 04 and 06 are assessed on.
+
+*One repository per module, nine in total.* What a private Terraform registry requires. Rejected because it takes the organisation from 12 repositories to 20 and multiplies a pipeline that had just been built once, for versioning granularity nobody has asked for at eight modules.
+
+*Private modules repository with a deploy key.* Would keep the account identifier question moot. Rejected because the modules contain no account identifier — they were audited before publishing — and because it reintroduces a long-lived credential into CI for no gain.
 
 ---
 
