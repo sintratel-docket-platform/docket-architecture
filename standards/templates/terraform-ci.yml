@@ -30,7 +30,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TERRAFORM_VERSION: "1.14.0"
+  TERRAFORM_VERSION: "1.16.0"
 
 jobs:
   static:
@@ -92,14 +92,15 @@ jobs:
       - name: Checkov
         uses: bridgecrewio/checkov-action@v12
         with:
+          config_file: .checkov.yml
           directory: .
           framework: terraform
           output_format: cli
           quiet: true
           soft_fail: false
 
-  test:
-    name: Module unit tests
+  rules:
+    name: IaC rules (IAC-01..IAC-24)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -109,18 +110,18 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
 
-      # Plan-mode tests with mocked providers need no credentials, which is
-      # what makes them viable as a pull request gate.
-      - name: terraform test
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      # The twenty-four rules in AGENTS.md section 7.12 were written with a
+      # verification command each, and until now nothing ran them: they were
+      # checkable but never checked. AGENTS.md says a convention that is not
+      # enforced is a suggestion, and that applied to its own rules.
+      #
+      # The script skips a rule whose tool is absent rather than failing, so
+      # what it reports as skipped is the honest gap, not a silent pass.
+      - name: Verify the IaC rules
         run: |
-          status=0
-          for dir in modules/*/; do
-            [ -d "${dir}tests" ] || continue
-            echo "== ${dir}"
-            (
-              cd "${dir}" \
-                && terraform init -backend=false -input=false > /dev/null \
-                && terraform test
-            ) || status=1
-          done
-          exit "${status}"
+          tflint --init
+          bash scripts/verify-iac-rules.sh

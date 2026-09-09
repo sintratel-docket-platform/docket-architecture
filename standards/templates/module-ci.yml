@@ -49,8 +49,18 @@ jobs:
               status=1
             fi
           }
-          scan '[0-9]{12}'                                   'A 12-digit identifier looks like an AWS account ID.'
-          scan 'arn:aws:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}'     'Account-qualified ARN found.'
+          # Twelve digits that are not all zeros and not part of a longer run.
+          # An all-zero identifier is the documented placeholder used by the
+          # module tests; a resource id like subnet-000...1 is longer and is
+          # not an account. Anything else that looks like an account fails.
+          scan_p() {
+            if grep -rnP "$1" modules/; then
+              echo "::error::$2"
+              status=1
+            fi
+          }
+          scan_p '(?<![0-9])(?!0{12})[0-9]{12}(?![0-9])' 'A 12-digit identifier looks like an AWS account ID.'
+          scan_p 'arn:aws:[a-z0-9-]*:[a-z0-9-]*:(?!0{12})[0-9]{12}' 'Account-qualified ARN found.'
           scan '(AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY)' 'Credential material found.'
 
           # The project-specific strings live in a secret rather than in this
@@ -182,7 +192,37 @@ jobs:
         with:
           working-dir: modules
           recursive: true
-          recursive-include-main: false
+          # working-dir already scopes the walk. Leaving recursive-path at its
+          # default makes the action look for modules/modules and fail with
+          # "stat modules/modules: no such file or directory".
+          recursive-path: .
           output-file: README.md
           output-method: inject
           fail-on-diff: true
+
+  rules:
+    name: IaC rules (IAC-01..IAC-24)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      # The twenty-four rules in AGENTS.md section 7.12 were written with a
+      # verification command each, and until now nothing ran them: they were
+      # checkable but never checked. AGENTS.md says a convention that is not
+      # enforced is a suggestion, and that applied to its own rules.
+      #
+      # The script skips a rule whose tool is absent rather than failing, so
+      # what it reports as skipped is the honest gap, not a silent pass.
+      - name: Verify the IaC rules
+        run: |
+          tflint --init
+          bash scripts/verify-iac-rules.sh
