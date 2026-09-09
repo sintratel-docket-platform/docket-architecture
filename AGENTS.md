@@ -328,7 +328,7 @@ Child modules never declare `provider` or `backend`. Every module carries `varia
 - **Every variable declares `type` and `description`.** No exceptions.
 - Order: `description`, `type`, `default`, `sensitive`, `validation`. Apply consistently.
 - A variable without `default` is required — use that deliberately.
-- **No defaults that point at one concrete account or environment.** No hardcoded account IDs, organisation IDs or user ARNs as defaults.
+- **No defaults that pin one concrete *environment*.** A project-wide constant is different from an environment: the AWS account, the GitHub organisation and the repository identifiers are the same for every stack, and `allowed_account_ids` already guards the account, so they belong in a default. What must never carry a default is anything where being explicit *is* the control — named IAM principals, network exposure, and secret values. Removing every default without supplying a replacement is worse than either: it leaves stacks that cannot plan at all.
 - `sensitive = true` on secrets. It redacts CLI output; it does **not** remove the value from state.
 - `validation` blocks on constrained inputs.
 - Every output declares a `description`. Delete outputs nobody consumes.
@@ -425,7 +425,7 @@ Run the whole set with `./scripts/verify-iac-rules.sh`. Individual commands assu
 | **IAC-04** | §7.3 | No resource name repeats its type | Manual review; `tflint` catches the common cases |
 | **IAC-05** | §7.4 | Every variable declares `type` and `description` | `tflint` rules `terraform_typed_variables`, `terraform_documented_variables` |
 | **IAC-06** | §7.4 | Every output declares a `description` | `tflint` rule `terraform_documented_outputs` |
-| **IAC-07** | §7.4 | No default pins a concrete account or environment | `grep -rnE 'default\s*=\s*"[0-9]{12}"' .` returns nothing |
+| **IAC-07** | §7.4 | No default pins a concrete environment, a named IAM principal, a CIDR or a secret. Project constants are allowed | Review; `grep -rnE 'default\s*=\s*"arn:aws:iam::[0-9]{12}:user/' .` returns nothing |
 | **IAC-08** | §7.4 | Secret variables are marked `sensitive` | `grep -rniE 'variable "(.*secret\|.*password\|.*token\|.*key)"' -A6 . \| grep -c sensitive` matches the count of such variables |
 | **IAC-09** | §7.5 | Canonical formatting | `terraform fmt -check -recursive -diff` exits zero |
 | **IAC-10** | §7.5 | Configuration is internally consistent | `make validate` reports Success for every stack and module |
