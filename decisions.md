@@ -81,7 +81,7 @@ Estados: **Aceptada** · **Supuesto** (tomada por ausencia de indicación contra
 
 **Consecuencias.**
 - El aislamiento entre ambientes ocurre a nivel lógico. No hay separación de nodo ni de plano de control, así que un incidente en el clúster alcanza a los tres ambientes al mismo tiempo, producción incluida.
-- Obliga a dimensionar los nodos para la suma de los tres ambientes. Ver el cálculo de pods por nodo en [`infraestructura-aws.md`](infraestructura-aws.md#cómputo).
+- Obliga a dimensionar los nodos para la suma de los tres ambientes. Ver el cálculo de pods por nodo en [`aws-infrastructure.md`](aws-infrastructure.md#cómputo).
 
 **Alternativa descartada.** Un clúster por ambiente. Ofrece aislamiento real y es lo indicado con un cliente que lo exija. Se descarta porque triplica el costo del control plane y agota el saldo disponible en pocos días.
 
