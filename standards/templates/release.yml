@@ -1,0 +1,38 @@
+# Release automation, disabled until one organisation setting changes.
+#
+# release-please reads Conventional Commits, opens a pull request that bumps
+# the version and writes the changelog, and merging it creates the tag that
+# docket-infrastructure pins with ?ref=. That is the mechanism card #12 needs.
+#
+# It cannot run today. The organisation sets workflow permissions to read-only
+# and forbids Actions from creating pull requests, and a repository cannot
+# override that upward:
+#
+#   Write permissions for workflows are disabled by the organization
+#   GitHub Actions is not permitted to create or approve pull requests
+#
+# To enable it: organisation Settings, Actions, General, Workflow permissions,
+# choose "Read and write permissions" and tick "Allow GitHub Actions to create
+# and approve pull requests". Then change the trigger below to `push` on main.
+#
+# Until then, releases are cut by hand, which is two commands and is documented
+# in the README. This file is kept rather than deleted so the automation is one
+# setting and one line away rather than a rewrite.
+
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          release-type: simple
+          token: ${{ secrets.GITHUB_TOKEN }}

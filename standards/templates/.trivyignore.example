@@ -1,0 +1,46 @@
+# Accepted Trivy findings.
+#
+# Each entry carries why it is accepted and when it must be looked at again.
+# An entry without both is not allowed, and neither is adding one to make a
+# build green: these are risks the project has decided to run, not checks it
+# has switched off. Anything not listed here fails the build.
+#
+# Reviewed: 9 September 2026.
+
+# AWS-0040 — EKS public endpoint enabled.
+# The endpoint is public but restricted: modules/cluster rejects 0.0.0.0/0 with
+# a validation block, so a caller must name explicit CIDRs. A fully private
+# endpoint needs a VPN or a bastion reachable from the team's networks, which
+# the credit budget does not cover and which ADR-006 deliberately avoided by
+# using SSM Session Manager. Authentication is IAM, so the endpoint being
+# reachable is not the same as it being open.
+# Revisit if the project gains a VPN, or before any real client data lands.
+AWS-0040 exp:2026-12-31
+
+# AWS-0104 (x2) — unrestricted egress on the ALB and node security groups.
+# Documented in modules/namespace/README.md and in the architecture: closing
+# egress breaks name resolution, image pulls from ECR, the SSM calls External
+# Secrets depends on, and the STS request behind IRSA. Ingress is what carries
+# the isolation, because it is the destination that refuses the connection.
+# Revisit if VPC endpoints are added for ECR, STS and SSM, which is what would
+# make a restricted egress list workable.
+AWS-0104 exp:2026-12-31
+
+# AWS-0164 — public subnets auto-assign a public IP.
+# Nothing is launched into them: the nodes live in the private subnets, and the
+# ALB and NAT Gateway take their addresses from AWS rather than from this
+# attribute. Turning it off is very likely safe and is worth doing, but it is a
+# change to live network configuration that deserves its own pull request and
+# its own plan rather than riding along with a CI fix.
+# Revisit: next infrastructure change touching modules/network.
+AWS-0164 exp:2026-10-31
+
+# AWS-0039 — EKS secret envelope encryption not enabled.
+# This one is a genuine gap rather than a decided trade-off, and it is the one
+# on this list worth acting on. Mitigating it today: real secrets live in SSM
+# Parameter Store outside the cluster (ADR-002), and the cluster is destroyed
+# and recreated routinely (ADR-010), so what sits in etcd is short-lived.
+# Enabling it needs a KMS key, is a one-way change on an existing cluster, and
+# costs about 1 USD a month.
+# Revisit: before any real client data is handled. Tracked for card #19.
+AWS-0039 exp:2026-10-31

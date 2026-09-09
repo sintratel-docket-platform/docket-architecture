@@ -1,0 +1,126 @@
+# Terraform CI — quality gates on every pull request.
+#
+# Place at .github/workflows/terraform-ci.yml in docket-infrastructure.
+# Register all four jobs as required checks in branch protection.
+#
+# Gates run cheapest-first, so a formatting error costs seconds, not a full plan.
+#   fmt -> validate -> tflint -> trivy + checkov -> tests
+#
+# No AWS credentials are needed: every gate here is static. `terraform plan`
+# against real state runs in the separate infrastructure workflow, with the
+# pipeline identity, never with an agent's.
+
+name: Terraform CI
+
+on:
+  pull_request:
+    paths:
+      - "**.tf"
+      - "**.tftest.hcl"
+      - ".terraform.lock.hcl"
+      - "Makefile"
+      - ".github/workflows/terraform-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.14.0"
+
+jobs:
+  static:
+    name: Format and validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # -diff prints what is wrong instead of only which file.
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      # `make validate` initialises with -backend=false, so it needs no state.
+      - name: terraform validate
+        run: make validate | tee validate.log && ! grep -q Error validate.log
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: tflint
+        run: |
+          tflint --init
+          tflint --recursive --format compact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  security:
+    name: IaC security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Trivy replaced tfsec, which was merged into it in 2023.
+      # The same tool also scans container images, which area 08 requires.
+      - name: Trivy configuration scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          trivy-config: trivy.yaml
+
+      # Checkov is deeper on Terraform specifically, with graph-based
+      # cross-resource analysis. The two are complementary, not redundant.
+      - name: Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform
+          output_format: cli
+          quiet: true
+          soft_fail: false
+
+  test:
+    name: Module unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # Plan-mode tests with mocked providers need no credentials, which is
+      # what makes them viable as a pull request gate.
+      - name: terraform test
+        run: |
+          status=0
+          for dir in modules/*/; do
+            [ -d "${dir}tests" ] || continue
+            echo "== ${dir}"
+            (
+              cd "${dir}" \
+                && terraform init -backend=false -input=false > /dev/null \
+                && terraform test
+            ) || status=1
+          done
+          exit "${status}"

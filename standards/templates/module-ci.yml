@@ -1,0 +1,188 @@
+# Module CI — quality gates and release automation for docket-terraform-modules.
+#
+# Place at .github/workflows/module-ci.yml in the modules repository.
+#
+# This repository is PUBLIC so that `terraform init` can clone it without a
+# credential, keeping ADR-011 (OIDC, no static keys) intact. That decision
+# makes the `exposure` job below a hard gate, not a nicety: nothing internal
+# may ever land here.
+
+name: Module CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "modules/**"
+      - ".github/workflows/module-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: module-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.14.0"
+
+jobs:
+  exposure:
+    name: No internal data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The repository is public. A module must never carry the account
+      # identifier, an account-qualified ARN, the domain, the organisation
+      # identifier, or a named principal.
+      - name: Scan for internal identifiers
+        env:
+          INTERNAL_PATTERNS: ${{ secrets.INTERNAL_PATTERNS }}
+        run: |
+          status=0
+          scan() {
+            if grep -rnE "$1" modules/; then
+              echo "::error::$2"
+              status=1
+            fi
+          }
+          scan '[0-9]{12}'                                   'A 12-digit identifier looks like an AWS account ID.'
+          scan 'arn:aws:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}'     'Account-qualified ARN found.'
+          scan '(AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY)' 'Credential material found.'
+
+          # The project-specific strings live in a secret rather than in this
+          # file. Writing them here would publish, in a public repository, the
+          # exact things this job exists to keep out of it.
+          if [ -n "${INTERNAL_PATTERNS:-}" ]; then
+            scan "$INTERNAL_PATTERNS" 'Internal domain or hostname found.'
+          else
+            echo "::warning::INTERNAL_PATTERNS is unset; the project-specific scan did not run."
+          fi
+          exit "$status"
+
+      - name: Secret scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+
+  static:
+    name: Format and validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      # Each module validates on its own, with no backend and no credentials.
+      - name: terraform validate
+        run: |
+          status=0
+          for dir in modules/*/; do
+            printf '%-40s' "${dir}"
+            if (cd "${dir}" \
+                  && terraform init -backend=false -input=false > /dev/null \
+                  && terraform validate -no-color > /dev/null); then
+              echo "OK"
+            else
+              echo "FAILED"
+              (cd "${dir}" && terraform validate -no-color) || true
+              status=1
+            fi
+          done
+          exit "${status}"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+      - run: |
+          tflint --init
+          tflint --recursive --format compact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  security:
+    name: IaC security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy configuration scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: modules
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          trivy-config: trivy.yaml
+
+      - name: Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: modules
+          framework: terraform
+          output_format: cli
+          quiet: true
+          soft_fail: false
+
+  test:
+    name: Module tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # Plan-mode tests with mocked providers need no credentials.
+      - name: terraform test
+        run: |
+          status=0
+          for dir in modules/*/; do
+            [ -d "${dir}tests" ] || continue
+            echo "== ${dir}"
+            (
+              cd "${dir}" \
+                && terraform init -backend=false -input=false > /dev/null \
+                && terraform test
+            ) || status=1
+          done
+          exit "${status}"
+
+  docs:
+    name: README is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A consumer pins a version and reads the README of that tag. A stale
+      # README on a published module is worse than none.
+      - name: terraform-docs
+        uses: terraform-docs/gh-actions@v1
+        with:
+          working-dir: modules
+          recursive: true
+          recursive-include-main: false
+          output-file: README.md
+          output-method: inject
+          fail-on-diff: true

@@ -18,6 +18,16 @@ The reference architecture and the decisions behind it.
 | [`aws-infrastructure.md`](aws-infrastructure.md) | Network, EKS, registry, state backend, identity, secrets, budget | 02, 08, 09 |
 | [`decisions.md`](decisions.md) | Eleven ADRs with context, consequences and rejected alternatives | 09 |
 
+### `docket-architecture/standards` — the engineering standards, here
+
+The canonical source every repository distributes from.
+
+| Document | Contents | Area |
+|---|---|---|
+| [`standards/AGENTS.md`](standards/AGENTS.md) | The engineering constitution: language, branching, Conventional Commits, pull requests, Terraform, GitOps, testing, security, definition of done | 01, 02, 05, 08 |
+| [`standards/terraform-iac-best-practices.md`](standards/terraform-iac-best-practices.md) | The long-form Terraform standard with rationale and sources | 02 |
+| [`standards/templates/`](standards/templates/) | The files distributed to each repository: CI workflows, linter and scanner configuration, OPA policy, PR template, CODEOWNERS | 01, 02, 04 |
+
 ### `docket-infrastructure` — infrastructure as code
 
 | Document | Contents | Area |
@@ -44,13 +54,14 @@ The reference architecture and the decisions behind it.
 | `README.md` | What the repository holds and the ownership boundary against infrastructure | 04 |
 | `docs/argocd-development.md` | The development environment end to end: architecture, access, validation, troubleshooting | 04 |
 
-### `docket-roadmap` — planning and evidence
+### `docket-roadmap` — planning and evidence, private
 
 | Document | Contents | Area |
 |---|---|---|
 | `README.md` | Index of the 48 cards with their board status | 01 |
 | `stories/` | One file per card, with its acceptance criteria as written | 01 |
 | `iterations/` | What each iteration committed to, what shipped, what did not, and what the retrospective found | 01 |
+| `plans/` | The remediation plan and the handover. Private because they name the account, the domain and findings that are still open | 01, 09 |
 
 ### `docket-ai-sdd` — process
 
@@ -60,6 +71,13 @@ The reference architecture and the decisions behind it.
 | `docs/sintratel-docket-brief.md` | The client brief and the nine areas | — |
 | `docs/sdd-adoption.md` | Where SDD starts applying, and why no retroactive specs | 01 |
 | `specs/` | Spec, plan and tasks per story | 01 |
+
+### `.github` — organisation defaults
+
+| Document | Contents | Area |
+|---|---|---|
+| `profile/README.md` | The organisation's public profile: what Docket is and where to start | 09 |
+| `.github/CONTRIBUTING.md`, `PULL_REQUEST_TEMPLATE.md` | Defaults for public repositories that carry no copy of their own | 01 |
 
 ### Every repository
 

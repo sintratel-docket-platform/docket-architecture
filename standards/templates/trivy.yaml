@@ -1,0 +1,37 @@
+# Trivy configuration — place at the repository root.
+#
+# Trivy absorbed tfsec in 2023; guides recommending tfsec are out of date.
+# The same binary scans Terraform configuration here and container images in
+# the service repositories, which covers two project requirements with one
+# tool and one workflow.
+#
+# Local run:  trivy config .
+
+severity:
+  - HIGH
+  - CRITICAL
+
+exit-code: 1
+
+scan:
+  scanners:
+    - misconfig
+    - secret
+  skip-dirs:
+    - "**/.terraform"
+    - ".git"
+
+misconfiguration:
+  include-non-failures: false
+  terraform:
+    # Exclude downloaded modules; we scan our own code, and the registry
+    # modules we consume are pinned and reviewed separately.
+    exclude-downloaded-modules: true
+
+# Findings accepted deliberately go here, each with an owner and an expiry.
+# An entry without a justification and a review date is not allowed.
+#
+# Record the same justification in the pull request and, when it is an
+# architectural choice rather than a temporary exception, as an ADR.
+
+ignorefile: .trivyignore

@@ -1,0 +1,45 @@
+# CODEOWNERS — automatic reviewer assignment
+#
+# Place at .github/CODEOWNERS in each repository.
+# Replace the placeholder handles with real GitHub usernames before committing.
+#
+# Pairs with branch protection: "Require review from Code Owners".
+# The goal is that no PR can be self-approved (AGENTS.md §6).
+
+# ---------------------------------------------------------------------------
+# Default: any change needs a platform reviewer
+# ---------------------------------------------------------------------------
+*                               @sintratel-docket-platform/platform
+
+# ---------------------------------------------------------------------------
+# Governance — changing the rules requires broader agreement
+# ---------------------------------------------------------------------------
+AGENTS.md                       @sintratel-docket-platform/leads
+CONTRIBUTING.md                 @sintratel-docket-platform/leads
+CODEOWNERS                      @sintratel-docket-platform/leads
+.github/                        @sintratel-docket-platform/leads
+
+# ---------------------------------------------------------------------------
+# docket-infrastructure
+# ---------------------------------------------------------------------------
+# Identity and state bootstrap carry the highest blast radius.
+modules/ci-identity/            @sintratel-docket-platform/leads
+stacks/bootstrap/               @sintratel-docket-platform/leads
+stacks/persistent/              @sintratel-docket-platform/leads
+policies/                       @sintratel-docket-platform/leads
+
+modules/                        @sintratel-docket-platform/platform
+stacks/                         @sintratel-docket-platform/platform
+
+# ---------------------------------------------------------------------------
+# docket-gitops — production sync policy is a controlled change
+# ---------------------------------------------------------------------------
+argocd/                         @sintratel-docket-platform/leads
+environments/prod/              @sintratel-docket-platform/leads
+environments/                   @sintratel-docket-platform/platform
+apps/                           @sintratel-docket-platform/platform
+
+# ---------------------------------------------------------------------------
+# docket-architecture — public repository
+# ---------------------------------------------------------------------------
+decisions.md                    @sintratel-docket-platform/leads
