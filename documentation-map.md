@@ -16,6 +16,7 @@ The reference architecture and the decisions behind it.
 | [`logical-architecture.md`](logical-architecture.md) | The five services, the queue, the call graph and the supporting platform | 01, 03 |
 | [`environments.md`](environments.md) | Namespaces, boundaries between environments, GitOps flow, secrets, DNS | 02, 04 |
 | [`aws-infrastructure.md`](aws-infrastructure.md) | Network, EKS, registry, state backend, identity, secrets, budget | 02, 08, 09 |
+| [`pipelines.md`](pipelines.md) | The ten pipelines, how they connect, the test pyramid, six sequence diagrams and the gate table | 04, 05, 06, 09 |
 | [`decisions.md`](decisions.md) | Eleven ADRs with context, consequences and rejected alternatives | 09 |
 
 ### `docket-architecture/standards` — the engineering standards, here
