@@ -176,7 +176,7 @@ git ls-files 2>/dev/null \
 # Words that are unambiguously Spanish. Deliberately excludes version,
 # region, no, red and similar, which are also English and produce false
 # positives that hide real progress.
-SPANISH_WORDS='\b(el|la|los|las|del|una|unos|unas|para|con|que|por|como|este|esta|estos|desde|donde|entre|cada|todo|toda|hasta|pero|porque|solo|nombre|valor|ambiente|ambientes|nodos|subredes|cuenta|clave|estado|recurso|recursos|politica|politicas|modulo|servicios|cluster de|tipo de|infraestructura|accion|acciones|diagnostico|encender|apagar|resumen|clusteres|activos|efimero|persistente|plataforma|registro|identidad|aislamiento|conservar|ultimas|imagenes|secretos|anotacion|construir|desplegar|borrar|crear|verificar)\b'
+SPANISH_WORDS='\b(el|la|los|las|del|una|unos|unas|para|con|que|por|como|este|esta|estos|desde|donde|entre|cada|todo|toda|hasta|pero|porque|solo|nombre|valor|ambiente|ambientes|nodos|subredes|cuenta|clave|estado|recurso|recursos|politica|politicas|modulo|servicios|cluster de|tipo de|infraestructura|accion|acciones|diagnostico|encender|apagar|resumen|clusteres|activos|efimero|persistente|plataforma|registro|identidad|aislamiento|conservar|ultimas|imagenes|secretos|anotacion|construir|desplegar|borrar|crear|verificar|gestionar|expirar|versiones|antiguas|cuota|limites|defecto|operador|balanceador|balanceadores|provisionar|publicar|nodos|publica|privada|leer|rama|ramas)\b'
 
 {
   grep -rlP '[\x{00e1}\x{00e9}\x{00ed}\x{00f3}\x{00fa}\x{00f1}\x{00c1}\x{00c9}\x{00cd}\x{00d3}\x{00da}\x{00d1}]' \
