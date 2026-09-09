@@ -12,6 +12,7 @@ This repository is the documentation deliverable of the project. It holds the re
 | [`environments.md`](environments.md) | Deployment per environment: namespaces, boundaries between `dev`, `staging` and `prod`, GitOps flow, secrets and DNS. | Target |
 | [`aws-infrastructure.md`](aws-infrastructure.md) | Physical layer on AWS: budget, multi-AZ network, EKS, registry, state backend, identity and secrets. | Target |
 | [`decisions.md`](decisions.md) | Decision record (ADR) with context, consequences and rejected alternatives. | Current |
+| [`documentation-map.md`](documentation-map.md) | Index of every project document across the five repositories, and which of the nine areas each answers. | Current |
 
 ## How to read this documentation
 
