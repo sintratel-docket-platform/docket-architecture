@@ -2,9 +2,9 @@
 
 **Propósito** Definir qué separa un ambiente de otro, cómo avanza un cambio hasta producción y qué controles existen en cada transición.
 
-![Despliegue por ambiente de Docket](img/ambientes.png)
+![Despliegue por ambiente de Docket](img/environments.png)
 
-Los componentes están descritos en [`logica.md`](logica.md). La capa física que sostiene este clúster está en [`infraestructura-aws.md`](infraestructura-aws.md).
+Los componentes están descritos en [`logical-architecture.md`](logical-architecture.md). La capa física que sostiene este clúster está en [`aws-infrastructure.md`](aws-infrastructure.md).
 
 ## Topología
 
@@ -49,9 +49,9 @@ La consecuencia importante: la pipeline nunca aplica cambios al clúster de form
 
 Este flujo impone una restricción sobre el etiquetado: **las etiquetas de imagen tienen que ser inmutables**. Con una etiqueta que se reescribe, el manifiesto no cambia, Argo CD no detecta nada y la promoción entre ambientes deja de funcionar. El esquema concreto de etiquetado se define al construir la pipeline.
 
-Lo mismo aplica a la infraestructura: la pipeline de Terraform provisiona la capa de AWS y deja intacto el interior del clúster. Son dos flujos independientes. Ver [`infraestructura-aws.md`](infraestructura-aws.md#flujo-de-cambio-de-infraestructura).
+Lo mismo aplica a la infraestructura: la pipeline de Terraform provisiona la capa de AWS y deja intacto el interior del clúster. Son dos flujos independientes. Ver [`aws-infrastructure.md`](aws-infrastructure.md#flujo-de-cambio-de-infraestructura).
 
-> **Consecuencia del ciclo de vida efímero.** El clúster se destruye y se recrea de forma rutinaria ([ADR-010](decisiones.md#adr-010-infraestructura-efímera-con-estado-dividido)). Todo lo que viva dentro y no esté declarado en el repositorio GitOps se pierde en cada ciclo: los datos de Prometheus y de Redis son efímeros por construcción, y Argo CD debe instalarse desde el stack de Terraform o desde un bootstrap declarado para que el clúster se reconstruya sin intervención manual.
+> **Consecuencia del ciclo de vida efímero.** El clúster se destruye y se recrea de forma rutinaria ([ADR-010](decisions.md#adr-010-infraestructura-efímera-con-estado-dividido)). Todo lo que viva dentro y no esté declarado en el repositorio GitOps se pierde en cada ciclo: los datos de Prometheus y de Redis son efímeros por construcción, y Argo CD debe instalarse desde el stack de Terraform o desde un bootstrap declarado para que el clúster se reconstruya sin intervención manual.
 
 ## Dependencias entre repositorios y ambientes
 
@@ -69,7 +69,7 @@ Los secretos de la aplicación, entre ellos el `JWT_SECRET` que comparten Auth A
 
 El alcance es por ambiente: el rol de IRSA de `dev` tiene lectura únicamente sobre `/docket/dev/...`. Ningún secreto queda en texto plano en un repositorio, y el conjunto sobrevive a la destrucción del clúster.
 
-Las credenciales de AWS que usa la pipeline se resuelven por federación OIDC con credenciales temporales, al margen de este mecanismo. Ver [ADR-011](decisiones.md#adr-011-credenciales-de-pipeline-con-oidc-e-iam-role).
+Las credenciales de AWS que usa la pipeline se resuelven por federación OIDC con credenciales temporales, al margen de este mecanismo. Ver [ADR-011](decisions.md#adr-011-credenciales-de-pipeline-con-oidc-e-iam-role).
 
 ## Dominio, DNS y TLS
 
@@ -81,4 +81,4 @@ Cada ambiente resuelve por un host distinto hacia el mismo ALB, y el Ingress sep
 | `staging` | `staging.docket.<dominio>` |
 | `dev` | `dev.docket.<dominio>` |
 
-El certificado lo emite ACM y termina en el ALB. Los registros de Route 53 son de tipo ALIAS y se gestionan desde Terraform, porque el ALB se recrea con cada `apply` y cambia de nombre DNS. Detalle en [`infraestructura-aws.md`](infraestructura-aws.md#dominio-dns-y-tls).
+El certificado lo emite ACM y termina en el ALB. Los registros de Route 53 son de tipo ALIAS y se gestionan desde Terraform, porque el ALB se recrea con cada `apply` y cambia de nombre DNS. Detalle en [`aws-infrastructure.md`](aws-infrastructure.md#dominio-dns-y-tls).

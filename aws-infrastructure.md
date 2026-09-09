@@ -5,9 +5,9 @@
 | **Propósito** | Definir la capa física sobre la que corre Docket: cuenta, red, cómputo, registry, backend de estado, identidad y secretos. |
 | **Región** | `us-east-1` |
 
-![Infraestructura AWS de Docket](img/infraestructura-aws.png)
+![Infraestructura AWS de Docket](img/aws-infrastructure.png)
 
-Esta vista responde a sobre qué corre el clúster descrito en [`ambientes.md`](ambientes.md). Los componentes de la aplicación están en [`logica.md`](logica.md); las decisiones que sostienen este diseño, en [`decisiones.md`](decisiones.md).
+Esta vista responde a sobre qué corre el clúster descrito en [`environments.md`](environments.md). Los componentes de la aplicación están en [`logical-architecture.md`](logical-architecture.md); las decisiones que sostienen este diseño, en [`decisions.md`](decisions.md).
 
 ## Presupuesto
 
@@ -36,7 +36,7 @@ Con nodos `t3.small` el total baja a ~78 USD, a costa de capacidad. Ver [Cómput
 
 **Implicación operativa.** Con 100 USD el margen es de apenas 8 USD sobre el costo estimado. Completar las 5 actividades para llegar a 200 USD es un prerrequisito práctico antes de aplicar esta arquitectura. La instancia de RDS o Aurora que pide una de las actividades debe eliminarse en cuanto se complete, porque es el único recurso de ese conjunto capaz de consumir créditos de forma sostenida si queda encendido.
 
-**Palanca de ahorro.** El diseño está pensado para destruirse y recrearse ([ADR-010](decisiones.md#adr-010-infraestructura-efímera-con-estado-dividido)). Apagar fuera del horario de trabajo reduce el costo a menos de la mitad, y cubre la meta extra de FinOps del brief.
+**Palanca de ahorro.** El diseño está pensado para destruirse y recrearse ([ADR-010](decisions.md#adr-010-infraestructura-efímera-con-estado-dividido)). Apagar fuera del horario de trabajo reduce el costo a menos de la mitad, y cubre la meta extra de FinOps del brief.
 
 ## Red
 
@@ -51,7 +51,7 @@ EKS exige subredes en al menos dos zonas de disponibilidad, así que la VPC se d
 
 Los nodos viven en subredes privadas, sin IP pública y sin ser alcanzables desde internet. Su tráfico de salida, que incluye el pull de imágenes y las llamadas a la API de AWS, pasa por el NAT Gateway. El único componente expuesto es el ALB.
 
-Se despliega **un solo NAT Gateway**, en la subred pública A, compartido por ambas zonas. La topología de referencia usa uno por zona, y duplicar el componente añadiría 15 USD sobre la ventana del proyecto. La consecuencia de esta concesión: si `us-east-1a` deja de estar disponible, los nodos de `us-east-1b` pierden su salida a internet. Ver [ADR-005](decisiones.md#adr-005-red-multi-az-con-un-solo-nat-gateway).
+Se despliega **un solo NAT Gateway**, en la subred pública A, compartido por ambas zonas. La topología de referencia usa uno por zona, y duplicar el componente añadiría 15 USD sobre la ventana del proyecto. La consecuencia de esta concesión: si `us-east-1a` deja de estar disponible, los nodos de `us-east-1b` pierden su salida a internet. Ver [ADR-005](decisions.md#adr-005-red-multi-az-con-un-solo-nat-gateway).
 
 ### Security groups
 
@@ -99,7 +99,7 @@ terraform {
 }
 ```
 
-El bloqueo usa un objeto `.tflock` en el mismo bucket, mediante escrituras condicionales de S3. El argumento `dynamodb_table` está deprecado en el backend S3 desde Terraform 1.11 y HashiCorp lo removerá en una versión menor futura, así que el diseño no crea tabla de DynamoDB. Ver [ADR-009](decisiones.md#adr-009-bloqueo-de-estado-nativo-de-s3).
+El bloqueo usa un objeto `.tflock` en el mismo bucket, mediante escrituras condicionales de S3. El argumento `dynamodb_table` está deprecado en el backend S3 desde Terraform 1.11 y HashiCorp lo removerá en una versión menor futura, así que el diseño no crea tabla de DynamoDB. Ver [ADR-009](decisions.md#adr-009-bloqueo-de-estado-nativo-de-s3).
 
 Permisos mínimos que exige el backend:
 
@@ -120,7 +120,7 @@ La infraestructura se destruye y se recrea de forma rutinaria, así que el Terra
 | `persistente` | Bucket de estado, ECR, zona de Route 53, certificado de ACM, OIDC provider, IAM roles y parámetros de SSM | Se crea una vez y permanece |
 | `efimero` | VPC, subredes, NAT, EKS, node group, ALB | `apply` y `destroy` a demanda |
 
-Sin esta separación, un `destroy` arrastraría el registry, los secretos y la zona DNS. Ver [ADR-010](decisiones.md#adr-010-infraestructura-efímera-con-estado-dividido).
+Sin esta separación, un `destroy` arrastraría el registry, los secretos y la zona DNS. Ver [ADR-010](decisions.md#adr-010-infraestructura-efímera-con-estado-dividido).
 
 ## Identidad y acceso
 
@@ -135,17 +135,17 @@ Sin esta separación, un `destroy` arrastraría el registry, los secretos y la z
 
 **Dos roles, no uno.** El job que construye imágenes no necesita permisos para crear VPCs ni clústeres, así que se separa en un rol propio limitado a `ecr:*` sobre los cinco repositorios. El rol amplio, con permisos sobre EC2, VPC, IAM, S3, EKS y Route 53, queda reservado al job que ejecuta Terraform. Esta separación responde al criterio de accesos limitados según necesidad de la historia `18` del tablero.
 
-La política de confianza de cada rol se restringe al repositorio y la rama concretos, con una condición sobre `sub` del tipo `repo:<org>/<repo>:ref:refs/heads/<rama>`. Un rol asumible por cualquier repositorio de la organización equivale a una credencial compartida. Ver [ADR-011](decisiones.md#adr-011-credenciales-de-pipeline-con-oidc-e-iam-role).
+La política de confianza de cada rol se restringe al repositorio y la rama concretos, con una condición sobre `sub` del tipo `repo:<org>/<repo>:ref:refs/heads/<rama>`. Un rol asumible por cualquier repositorio de la organización equivale a una credencial compartida. Ver [ADR-011](decisions.md#adr-011-credenciales-de-pipeline-con-oidc-e-iam-role).
 
 ### Acceso administrativo
 
-El acceso puntual a un nodo se hace con **SSM Session Manager**: la sesión se inicia contra la API de AWS, se autoriza por IAM y queda registrada en CloudTrail, sin abrir ningún puerto de entrada. La administración del clúster se hace con `kubectl` contra el endpoint de EKS, autorizado también por IAM. Ver [ADR-006](decisiones.md#adr-006-acceso-administrativo-con-ssm-session-manager).
+El acceso puntual a un nodo se hace con **SSM Session Manager**: la sesión se inicia contra la API de AWS, se autoriza por IAM y queda registrada en CloudTrail, sin abrir ningún puerto de entrada. La administración del clúster se hace con `kubectl` contra el endpoint de EKS, autorizado también por IAM. Ver [ADR-006](decisions.md#adr-006-acceso-administrativo-con-ssm-session-manager).
 
 ## Secretos
 
 Los secretos de la aplicación, entre ellos el `JWT_SECRET` compartido, viven en **SSM Parameter Store** como `SecureString`, fuera del clúster. Dentro del clúster, **External Secrets Operator** los lee mediante IRSA y los materializa como `Secret` de Kubernetes en cada namespace.
 
-El motivo de fondo es el ciclo de vida efímero del clúster. Un mecanismo que guarde la llave de descifrado dentro del clúster, como Sealed Secrets, pierde esa llave en cada `destroy` y deja inservibles los secretos cifrados del repositorio. Ver [ADR-002](decisiones.md#adr-002-secretos-con-external-secrets-y-ssm-parameter-store).
+El motivo de fondo es el ciclo de vida efímero del clúster. Un mecanismo que guarde la llave de descifrado dentro del clúster, como Sealed Secrets, pierde esa llave en cada `destroy` y deja inservibles los secretos cifrados del repositorio. Ver [ADR-002](decisions.md#adr-002-secretos-con-external-secrets-y-ssm-parameter-store).
 
 El árbol de parámetros se segmenta por ambiente (`/docket/dev/...`, `/docket/staging/...`, `/docket/prod/...`) y el rol de IRSA de cada namespace tiene permiso de lectura solo sobre su propio prefijo.
 
@@ -155,11 +155,11 @@ El árbol de parámetros se segmenta por ambiente (`/docket/dev/...`, `/docket/s
 2. El job de validación corre `terraform plan` y `apply` contra **Floci** en el runner, con un provider `aws` aliasado a `localhost:4566`. Ahí se detectan errores de sintaxis, referencias rotas y políticas mal formadas, sin tocar la cuenta real.
 3. Superada la validación, el job de infraestructura solicita el token OIDC, asume `GitHubActionsDeployRole` y corre `terraform apply` contra la cuenta real.
 
-Este flujo corre en paralelo al despliegue de la aplicación. Argo CD sincroniza el repositorio de manifiestos por su cuenta y la pipeline de Terraform nunca aplica cambios dentro del clúster. Ver [`ambientes.md`](ambientes.md#flujo-gitops).
+Este flujo corre en paralelo al despliegue de la aplicación. Argo CD sincroniza el repositorio de manifiestos por su cuenta y la pipeline de Terraform nunca aplica cambios dentro del clúster. Ver [`environments.md`](environments.md#flujo-gitops).
 
 The Terraform CI workflow validates formatting and provider schemas, runs
 TFLint, Trivy, and Checkov, and evaluates real plan JSON against the Docket OPA
-policy. See [ADR-007](decisiones.md#adr-007-terraform-validation-with-ci-quality-gates).
+policy. See [ADR-007](decisions.md#adr-007-terraform-validation-with-ci-quality-gates).
 
 ## Dominio, DNS y TLS
 
@@ -171,7 +171,7 @@ Route 53 aloja la zona del dominio comprado por el equipo. Cada ambiente resuelv
 | `staging` | `staging.docket.<dominio>` |
 | `dev` | `dev.docket.<dominio>` |
 
-El certificado TLS lo emite **AWS Certificate Manager**, con validación por DNS contra la misma zona de Route 53, y termina en el ALB. ACM entrega certificados públicos sin costo y los renueva de forma automática mientras exista el registro de validación en la zona. Ver [ADR-008](decisiones.md#adr-008-dns-en-route-53-y-tls-con-acm).
+El certificado TLS lo emite **AWS Certificate Manager**, con validación por DNS contra la misma zona de Route 53, y termina en el ALB. ACM entrega certificados públicos sin costo y los renueva de forma automática mientras exista el registro de validación en la zona. Ver [ADR-008](decisions.md#adr-008-dns-en-route-53-y-tls-con-acm).
 
 **Alcance del cifrado.** El tráfico viaja cifrado entre el usuario y el ALB. Del ALB hacia el pod circula como HTTP plano dentro de la VPC. Si el área 08 exige cifrado de extremo a extremo, hay que habilitar re-encriptación hacia el target group, algo que este diseño todavía no contempla.
 

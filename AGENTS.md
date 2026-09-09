@@ -59,7 +59,7 @@ If you read nothing else, read these ten.
 | Kubernetes resource names | English, `kebab-case` |
 | Issue and Kanban card titles | English |
 
-No accents, no Spanish words, no mixed-language identifiers. `check-orphans.sh`, not `verificar-huerfanos.sh`. `environment`, not `ambiente`.
+No accents, no Spanish words, no mixed-language identifiers. Use descriptive English names such as `check-orphans.sh` and `environment`.
 
 This supersedes the language section of `docket-infrastructure/CONVENTIONS.md`, which previously specified Spanish.
 
@@ -229,9 +229,9 @@ Refs: #9
 ```
 
 ```
-refactor(environments)!: rename Spanish stack directories to English
+refactor(environments)!: rename legacy stack directories to English
 
-BREAKING CHANGE: `make apply STACK=efimero` is now
+BREAKING CHANGE: stack commands now use
 `make apply STACK=ephemeral`. S3 state keys are unchanged in this
 commit; they are migrated separately.
 
@@ -442,7 +442,7 @@ Run the whole set with `./scripts/verify-iac-rules.sh`. Individual commands assu
 | **IAC-21** | §7.10 | The four mandatory tags on every resource | Same OPA evaluation |
 | **IAC-22** | §7.10 | No `local-exec` provisioner | Same OPA evaluation |
 | **IAC-23** | §9 (modules) | Every module has plan-mode tests | `for d in modules/*/; do [ -d "${d}tests" ] \|\| echo "NO TESTS $d"; done`, then `terraform test` |
-| **IAC-24** | §2 | No non-English identifier, comment or path | `grep -rP '[áéíóúñÁÉÍÓÚÑ]' --include='*.tf' --include='*.md' .` returns nothing |
+| **IAC-24** | §2 | No non-English identifier, comment or path | `grep -rP '[\x{00e1}\x{00e9}\x{00ed}\x{00f3}\x{00fa}\x{00f1}\x{00c1}\x{00c9}\x{00cd}\x{00d3}\x{00da}\x{00d1}]' --include='*.tf' --include='*.md' .` returns nothing |
 
 **Where each one is enforced.** IAC-01 through IAC-17 and IAC-24 run on every pull request in the `terraform-ci` workflow. IAC-18 through IAC-22 need a plan artifact, so they run against `terraform show -json` in the plan job. IAC-23 runs in the module repository's own pipeline.
 

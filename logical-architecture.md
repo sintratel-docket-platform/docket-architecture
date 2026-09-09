@@ -6,9 +6,9 @@
 | **Audiencia** | Todo el equipo. Es el punto de entrada para entender el sistema sin leer el código. |
 | **Estado** | Los componentes y sus dependencias están verificados contra el código de `microservice-app-example`. La plataforma de soporte (registry, pipelines, observabilidad) describe el objetivo. |
 
-Dónde corre cada cosa está en [`ambientes.md`](ambientes.md) y [`infraestructura-aws.md`](infraestructura-aws.md).
+Dónde corre cada cosa está en [`environments.md`](environments.md) y [`aws-infrastructure.md`](aws-infrastructure.md).
 
-![Arquitectura lógica de Docket](img/logica.png)
+![Arquitectura lógica de Docket](img/logical-architecture.png)
 
 ## Componentes de aplicación
 
@@ -45,11 +45,11 @@ Cada alta y baja en Todos API publica un mensaje en el canal de Redis. Log Messa
 
 Auth API firma los tokens; Users API y Todos API los verifican. Los tres necesitan el mismo valor de `JWT_SECRET`.
 
-Es el acoplamiento más fuerte del sistema. Rotarlo obliga a actualizar los tres servicios de forma coordinada, y durante la rotación los tokens emitidos con el valor anterior dejan de validar. Su gestión está descrita en [`ambientes.md`](ambientes.md#gestión-de-secretos), y nunca viaja en el código ni en texto plano dentro de un repositorio.
+Es el acoplamiento más fuerte del sistema. Rotarlo obliga a actualizar los tres servicios de forma coordinada, y durante la rotación los tokens emitidos con el valor anterior dejan de validar. Su gestión está descrita en [`environments.md`](environments.md#gestión-de-secretos), y nunca viaja en el código ni en texto plano dentro de un repositorio.
 
 ## Plataforma de soporte
 
-**Registry: Amazon ECR.** Guarda las imágenes de los cinco servicios y lo comparten los tres ambientes. Entre ambientes cambia la versión de imagen que se despliega, con el mismo origen en todos los casos. Ver [ADR-001](decisiones.md#adr-001-registry-amazon-ecr).
+**Registry: Amazon ECR.** Guarda las imágenes de los cinco servicios y lo comparten los tres ambientes. Entre ambientes cambia la versión de imagen que se despliega, con el mismo origen en todos los casos. Ver [ADR-001](decisions.md#adr-001-registry-amazon-ecr).
 
 **Integración continua: GitHub Actions.** Construye, prueba y publica las imágenes al registry. El diseño de las pipelines corresponde al área 04 y no se detalla aquí.
 
