@@ -1,27 +1,39 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Shared Renovate preset for the Docket platform. Referenced by every repository as github>sintratel-docket-platform/docket-architecture, which works without a credential because this repository is public. Edit here, not in a copy.",
-  "extends": ["config:recommended"],
-  "labels": ["dependencies"],
+  "description": "Shared Renovate preset for the Docket platform. Referenced by every repository as github>sintratel-docket-platform/docket-architecture, which works without a credential because this repository is public. Edit here, not in a copy. There is deliberately no schedule: prConcurrentLimit is what caps the noise, and a weekly window only delays the work.",
+  "extends": [
+    "config:recommended"
+  ],
+  "labels": [
+    "dependencies"
+  ],
   "prConcurrentLimit": 3,
   "timezone": "America/Bogota",
-  "schedule": ["before 9am on monday"],
   "packageRules": [
     {
       "description": "Actions get their own pull request so a supply chain advisory is easy to spot. trivy-action below 0.35.0 was one, and it sat pinned in this project for weeks.",
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "groupName": "github actions"
     },
     {
       "description": "A major bump is never grouped: it needs its own review and its own plan.",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "groupName": null,
-      "labels": ["dependencies", "major"]
+      "labels": [
+        "dependencies",
+        "major"
+      ]
     }
   ],
   "vulnerabilityAlerts": {
-    "labels": ["dependencies", "security"],
-    "schedule": null
+    "labels": [
+      "dependencies",
+      "security"
+    ]
   },
   "osvVulnerabilityAlerts": true
 }
