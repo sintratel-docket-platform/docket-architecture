@@ -3,8 +3,8 @@
 How work reaches the cluster, which automation owns each step, and where a change is
 stopped when it should not go further.
 
-The project runs ten pipelines across four repositories. Five work today. Five belong to
-card 9 and later. This document maps all of them and sequences the six where the order of
+The project runs ten pipelines across four repositories. Six work today. Four belong to
+card 14 and later. This document maps all of them and sequences the six where the order of
 messages between independent actors carries information.
 
 ## Why the work is split across pipelines
@@ -84,9 +84,25 @@ frontend, the APIs and the queue all reachable through the ingress.
 Coverage is produced at the unit level and consumed by SonarQube. Integration and end to
 end produce pass or fail plus traces, and their result is what the promotion gate reads.
 
-**Current state.** Of the five services, only `users-api` contains a test file, and it is
-the empty Spring context test inherited from the upstream fork. The other four have none.
-Cards 10, 16 and 17 start from zero.
+**Current state, 11 September 2026.** All five services carry a suite and `service-ci` runs
+it on every change. 106 tests, 71 at level 1 and 35 at level 2.
+
+| Service | L1 | L2 | Line coverage |
+|---|---|---|---|
+| `auth-api` | 12 | 11 | 60.6% |
+| `users-api` | 11 | 10 | 80.6% |
+| `todos-api` | 9 | 8 | 53.2% |
+| `log-message-processor` | 2 | 6 | 69% |
+| `frontend` | 37 | 0 | 75.4% |
+
+Level 3 has nothing yet and is correctly blocked. It needs a deployed staging
+environment, which is card 22.
+
+Two gaps the numbers hide. `server.js` in `todos-api` and `main.js` in the frontend sit at
+0%, because the level 2 helper builds its own Express app rather than booting the real
+one, so nothing at any level exercises the process starting up. That belongs to level 3.
+And `frontend` has no level 2 at all, which `AGENTS.md` section 9.2 intends and card 16
+contradicts. One of the two is wrong and nobody has decided which.
 
 ## Sequence 1. Commit to development
 
@@ -128,6 +144,57 @@ for new images, which adds delay, fails quietly, and loses the link between a co
 the deployment it produced.
 
 **Argo CD appears at the end.** No arrow runs from GitHub Actions to the cluster.
+
+## What the first image scans found
+
+The gate in Sequence 1 had never run against a container before 11 September 2026. Running
+it across the five services produced the numbers below. They are recorded here because they
+are the baseline a future decision needs, and because every one of the five services would
+have failed its first merge without the work each row describes.
+
+| Service | Base image | CRITICAL before | after | What was done |
+|---|---|---|---|---|
+| `auth-api` | distroless static, Debian 12 | 1 | 0 | grpc 1.63.2 had a patch at 1.79.3 and it was taken |
+| `todos-api` | `node:20-alpine` | 1 | 0 | the CVE was in npm's bundled tar, and npm was removed from the runtime stage |
+| `frontend` | `nginx-unprivileged:1.27-alpine` | 2 | 0 | the 1.27 line stopped receiving the OpenSSL patch, so the base moved to 1.29 |
+| `log-message-processor` | `python:3.11-slim`, Debian 13 | 3 | 3 accepted | perl-base has no fixed Debian release, and the bookworm base measured worse at 5 |
+| `users-api` | `eclipse-temurin:8-jre-alpine` | 44 | 17 accepted | every patch inside the Boot 1.5.6 lines was taken, closing 27 |
+
+### The gate reported green while scanning nothing
+
+The first run of the pilot passed all five checks. It was not scanning for
+vulnerabilities. `trivy.yaml` sits at the root of every service repository and pins
+`scanners` to `misconfig` and `secret` for the Terraform scan, Trivy discovers that file on
+its own, and it overrode the intent of the step. The evidence was a summary table carrying
+`Misconfigurations` and `Secrets` columns with no `Vulnerabilities` column, and a job that
+downloaded the checks bundle instead of the vulnerability database.
+
+Every `service-ci` now passes `scanners` explicitly. A green check is not evidence on its
+own. The log must show `[vulndb] Downloading vulnerability DB` and the table must carry a
+`Vulnerabilities` column.
+
+### What this leaves open
+
+`log-message-processor` accepts 3 findings and `users-api` accepts 17. Both sets expire on
+2 October 2026, and an expiry is a recheck rather than an extension.
+
+The two are different problems and the distinction matters for whoever picks this up.
+
+The three in `log-message-processor` are Debian's to fix. Nothing in the project can reach
+them, the alternative base was measured and is worse, and the worker never invokes perl.
+The decision to revisit is whether Debian has shipped a fix.
+
+The 17 in `users-api` are one decision repeated. Spring Boot 1.5.6 is from 2017 and has
+been out of support since 2019. Tomcat needs 9 or later, Spring needs 5 or later, h2 needs
+a major version that changes SQL syntax, and dom4j has no fix at all. Card 49 is the work
+that empties that file, and its acceptance criteria include the list returning to
+`vulnerabilities: []`. Until then this service reports green because the findings are
+declared, not because they are resolved.
+
+HIGH findings are reported everywhere and block nowhere. That threshold belongs to the
+`main` to `dev` promotion gate in `AGENTS.md` section 9.5, card 16. Raising it into
+`service-ci` today would stop all five services on base image CVEs that are already
+recorded as a limitation.
 
 ## Sequence 2. Promotion to production
 
@@ -209,15 +276,34 @@ one blocks a merge.
 Gates run cheapest first, so a formatting error costs seconds. None of them holds cloud
 credentials.
 
-## Open before the YAML is written
+## Open before the tag reaches docket-gitops
 
-**Which credential lets the pipeline write into `docket-gitops`.** The `GITHUB_TOKEN`
-Actions issues is scoped to the repository where the run happens. Writing to another
-repository requires a deploy key, a fine grained token or a GitHub App, and none exists
-yet.
+The first two questions in this section are answered. The YAML they blocked is written and
+running in all five services, and the answers are recorded here because the reasoning does
+not survive in the result.
 
-**Where exactly the image tag lives.** The step that writes the tag needs a file and a
-line, and that path comes from the directory layout of `docket-gitops`.
+**Which credential lets the pipeline write into `docket-gitops`. A GitHub App.** The
+`GITHUB_TOKEN` Actions issues is scoped to the repository where the run happens, and the
+deploy key `docket-gitops` already holds is read only and belongs to Argo CD.
+
+A write deploy key was rejected. It is a long lived secret that would sit in five
+repositories and rotate by hand. A fine grained token was rejected because it belongs to a
+person and expires. The App belongs to the organisation, installs on `docket-gitops` alone
+with `contents: write`, and mints a token per run that lives an hour.
+
+**It does not exist yet, and it is the only thing blocking the tag write.** Creating an
+organisation App and installing it are both owner actions, so this waits on a team lead
+rather than on whoever writes the pipeline. The work was ordered around that. Build, test,
+scan and publication to ECR need none of it and are delivered.
+
+**Where exactly the image tag lives.** In the `images:` block of
+`environments/<env>/kustomization.yaml`, one entry per service, written with
+`kustomize edit set image`. A `sed` over the YAML works until someone reorders the file.
+
+Six entries share one file, so five pipelines write to the same path. Actions concurrency
+groups do not cross repositories, so two merges landing together collide on the push. The
+step needs a rebase and a bounded retry, and it needs to fail visibly rather than leave a
+tag half written.
 
 **How a version is recorded as promotable.** Sequence 5 ends with `verify` writing that
 signal. A Git tag, a status check on the commit, and a file in the repository are all
