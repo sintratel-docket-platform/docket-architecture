@@ -68,9 +68,16 @@ jobs:
     name: Branch name and language
     runs-on: ubuntu-latest
     steps:
+      # release-please opens its release pull request from a branch whose name
+      # the tool fixes and does not let a configuration change. It is exempt
+      # from the naming rule only; the language check below still runs on it.
       - name: Branch name follows <type>/<card>-<slug>
         run: |
           branch="${{ github.head_ref }}"
+          if [ "$branch" = "release-please--branches--main" ]; then
+            echo "Branch name exempt: $branch is the release-please release branch."
+            exit 0
+          fi
           pattern='^(feat|fix|docs|refactor|perf|test|build|ci|chore|revert)/[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'
           if ! printf '%s' "$branch" | grep -qE "$pattern"; then
             echo "::error::Branch '$branch' does not match <type>/<card-number>-<slug>."
