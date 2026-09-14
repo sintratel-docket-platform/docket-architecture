@@ -41,6 +41,27 @@ The distinction between the two controls matters in production. Approving and me
 
 Designing the approval policies and naming the owners belongs to area 04. What is defined here is the boundary those policies must respect.
 
+## What differs between environments
+
+Staging exists to rehearse production, so it deliberately runs what production
+will run. What separates the three is isolation, exposure and how a version
+arrives, not the application's configuration. An identical row below is a
+decision, not an oversight, and says why.
+
+| Dimension | `dev` | `staging` | `prod` | Why |
+|---|---|---|---|---|
+| Namespace | `dev` | `staging` | `prod` | One cluster, one namespace per environment ([ADR-003](decisions.md#adr-003-one-shared-cluster-with-three-namespaces)) |
+| Resource quota and limit range | 2 CPU / 3 Gi of limits, 15 pods | same | same | A staging that fits where production would not proves nothing; production-shaped capacity, if needed, is card 26 |
+| RBAC for operators | `exec` and `port-forward` allowed | allowed | **not allowed** | Diagnosing a rehearsal needs a shell; production does not get one |
+| Network isolation | namespace-scoped policy, load balancer subnets admitted | same | same | No traffic crosses environments |
+| Secrets | `/docket/dev/`, read by `docket-dev-eso` | `/docket/staging/` | `/docket/prod/` | Each environment can only name, and only read, its own prefix |
+| Host | `dev.docket.<domain>` | `staging.docket.<domain>` | `docket.<domain>`, not yet exposed | One wildcard certificate covers all three |
+| Load balancer | shared `docket-non-production` group | shared with `dev` | its own, card 26 | [ADR-015](decisions.md#adr-015-staging-shares-the-non-production-load-balancer) |
+| How a version arrives | the service pipeline writes it on merge | a promotion pull request, checked by `gitops-ci` | a promotion pull request with its designated approver | [ADR-013](decisions.md#adr-013-semantic-versioning-for-services-and-modules), [ADR-014](decisions.md#adr-014-promotion-between-environments) |
+| Argo CD sync | automated, self-heal, prune | automated, self-heal, prune | **manual** | The merge declares production; a person applies it |
+| Images kept in the registry | the last ten | every declared image pinned `promoted-staging-*` | pinned `promoted-production-*` | An environment must never declare a pruned image |
+| Replicas, requests, limits, environment variables | from the base manifests | same | same | Staging rehearses production's configuration exactly |
+
 ## GitOps flow
 
 The manifest repository holds the declarative truth of the three environments. Argo CD runs inside the cluster, watches that repository and synchronises each namespace with what is declared.
