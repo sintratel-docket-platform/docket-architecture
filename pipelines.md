@@ -57,9 +57,10 @@ Four properties of the system are visible in the map.
 analysis and needs no cloud identity. The one workflow that can destroy the cluster is
 therefore manual and sits behind a single OIDC role.
 
-**A version joins the two Terraform repositories.** `docket-terraform-modules` cuts a tag,
-Renovate opens a bump pull request, and live state changes on apply. Each step is an
-explicit decision, so a module change reaches production only when someone chooses it.
+**A version joins the two Terraform repositories.** `docket-terraform-modules` cuts a tag
+when someone merges the release pull request release-please keeps open, Renovate opens a
+bump pull request, and live state changes on apply. Each step is an explicit decision, so
+a module change reaches production only when someone chooses it.
 
 **`docket-gitops` sits between code and cluster.** No pipeline holds `kubectl`
 credentials. Every deployment happens because Argo CD read a commit.
@@ -133,6 +134,34 @@ the vulnerable image is already available to deploy.
 document asks to tie every build to a commit and to an identifiable version, which are two
 different questions. The version identifies a release in conversation, the sha identifies
 the exact source.
+
+Implemented by card 12 and recorded in ADR-013. `.github/scripts/next-version.sh` reads
+the commits since the highest `vX.Y.Z` tag: a breaking change bumps the major, a `feat`
+the minor, and anything else that publishes an image the patch, because an image deployed
+without a version is exactly what the two tags exist to prevent. The first version of each
+service was `1.0.0`. On a pull request the version is predicted from its title, which
+becomes the squash commit, and shown in the run summary.
+
+Four properties hold the chain together, each enforced by the pipeline rather than by
+convention:
+
+- **Both tags name one manifest.** The version is added to the pushed sha tag with
+  `imagetools create --prefer-index=false`, and the run compares the two digests. Without
+  that flag buildx wraps the image in a new manifest list; `log-message-processor` `1.0.0`
+  was published that way, before the fix, and stays as the one exception, since ECR tags
+  cannot be rewritten.
+- **A version never names two commits.** If it already exists in ECR, its
+  `org.opencontainers.image.revision` label must be this commit, which makes the run a
+  re-run; otherwise the run fails and names both.
+- **The Git tag follows the image.** `vX.Y.Z` is pushed only after the registry holds the
+  image, so no tag points at a version that cannot be pulled.
+- **Runs on `main` queue.** A run cancelled between the registry push and the tag would
+  leave the next run to collide, so only pull request runs cancel each other.
+
+`docket-gitops` receives the version as `newTag`, with the sha in the commit header
+(`deploy 1.0.1 (sha-e4ae055) to development`), and the Slack announcement carries both.
+Observed end to end on the first rollout: every pod in `dev` runs a version whose image
+digest equals the one ECR reports for both of its tags.
 
 **Development is written directly, with no pull request.** The environment document
 assigns the controls: none extra for `dev`, review for `staging`, review plus approval for
@@ -226,6 +255,14 @@ Destroying the cluster first leaves all three orphaned and billing.
 The only flow that crosses repositories, introduced by ADR-012 when modules moved out of
 `docket-infrastructure`.
 
+Releasing is automatic since card 12 (ADR-013). Every push to `main` runs release-please,
+which reads the commits that touched `modules/` since the last tag. A `feat`, `fix`, `perf`
+or breaking change opens or updates one release pull request; anything else, and any change
+outside `modules/`, releases nothing. The deliberate act is merging that pull request,
+which creates the tag, so several module changes can travel in one release. The first run
+after it was switched on confirmed the path filter: `No commits for path: modules,
+skipping`.
+
 It also shows why the exposure scan runs first in `module-ci`. The module repository is
 public and so is its Git history, so clearing an account identifier committed by mistake
 requires rewriting history.
@@ -297,8 +334,10 @@ rather than on whoever writes the pipeline. The work was ordered around that. Bu
 scan and publication to ECR need none of it and are delivered.
 
 **Where exactly the image tag lives.** In the `images:` block of
-`environments/<env>/kustomization.yaml`, one entry per service, written with
-`kustomize edit set image`. A `sed` over the YAML works until someone reorders the file.
+`environments/<env>/kustomization.yaml`, one entry per service. It is written by a
+one-line `awk` edit of the matching `newTag`, not `kustomize edit set image`, which
+rewrites and reorders the whole file and turns every write into a collision. Since card 12 the value written is the semantic version, not the sha (ADR-013, and
+`AGENTS.md` §8 rule 5).
 
 Six entries share one file, so five pipelines write to the same path. Actions concurrency
 groups do not cross repositories, so two merges landing together collide on the push. The
