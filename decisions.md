@@ -34,6 +34,8 @@ Statuses: **Accepted** · **Assumption** (taken in the absence of guidance to th
 | [011](#adr-011-pipeline-credentials-with-oidc-and-an-iam-role) | Pipeline credentials with OIDC and an IAM role | Accepted |
 | [012](#adr-012-modules-in-their-own-repository-versioned-by-tag) | Modules in their own repository, versioned by tag | Accepted |
 | [013](#adr-013-semantic-versioning-for-services-and-modules) | Semantic versioning for services and modules | Accepted |
+| [014](#adr-014-promotion-between-environments) | Promotion between environments | Implemented |
+| [015](#adr-015-staging-shares-the-non-production-load-balancer) | Staging shares the non-production load balancer | Implemented |
 
 ---
 
@@ -343,6 +345,71 @@ Service repositories merge by squash only, and the squash commit takes the pull 
 
 ---
 
+## ADR-014 Promotion between environments
+
+**Status:** Implemented.
+
+**Context.** Development receives a new version on every merge, written by the service pipeline (ADR-013). Nothing moved a version anywhere else: staging sat for a week on images nobody promoted, and one of them was pruned from the registry while staging still declared it, so the next cluster start would have failed. The deliverables ask for controlled promotion by updating the version reference in the manifest repository, and `AGENTS.md` §9.5 gates each transition on tests that do not exist yet (cards 16 and 17).
+
+**Decision.** A version moves between environments only as a reviewed change to `newTag`, and every such change is checked, whoever writes it.
+
+| Piece | Where | What it does |
+|---|---|---|
+| `promote` | `docket-gitops`, run by hand | Takes a target and a set of services, refuses what the rules reject, edits `newTag`, and opens the pull request as the `docket-gitops-writer` App so checks run on it |
+| `gitops-ci` | `docket-gitops`, every pull request touching the manifests | The environments render; each moved image exists in ECR; a version reaching staging was declared by development first, one reaching production by staging, read from the base of the pull request; the verify gate |
+| Pin | `docket-gitops`, after a merge to staging or production | Adds `promoted-<environment>-<tag>` to each declared image, writing its own manifest back so the digest cannot change |
+| Retention | `registry` module | A first lifecycle rule keeps the last 20 images carrying `promoted-`; the last ten of the rest are kept as before |
+| Identity | `ci-identity` module | A read role for the manifests repository, trusted for its pull requests and `main`, `ecr:DescribeImages` only; a pin role trusted for `main` only, `BatchGetImage`, `DescribeImages`, `PutImage` |
+
+A promotion moves services, not environments: each service at its own version, so one held-back service never blocks the others and each can be reverted alone. The same flow serves development to staging and staging to production; production additionally needs its designated approver and a manual sync (cards 25 to 27).
+
+**The verify gate is reserved, not enforced.** The contract is fixed now: `verify` (cards 16 and 17) sets a commit status named `verify` on the commit in `docket-gitops` that deployed a version to an environment. `gitops-ci` reads it on the source environment's deploy commit. Absent or pending, the check passes with a visible warning; failed, it blocks. Promotion shipped with human review as the control rather than waiting for the suites.
+
+**Consequences.**
+- There is no side door. A hand-edited pull request meets the same rules as one the workflow opens; one moving staging to a tag development never declared was refused on the order rule alone.
+- A promoted image outlives any number of development publications. A lifecycle preview with a deliberately tight rule kept the pinned image, the oldest in its repository, while expiring five newer unpinned ones.
+- Only the references a pull request moves are checked. Production still declares an image pruned before this decision; card 26 will meet it rather than every unrelated pull request.
+- Rollback is a revert of the promotion's commit in `docket-gitops`, never a rollback in the Argo CD interface, which self-heal would undo. The reverted-to image is still in the registry because it was pinned.
+- Enforcing the review depends on branch protection, unavailable for the private manifests repository on the current GitHub plan (card 39).
+
+**Rejected alternatives.**
+
+*Keeping more images of every kind instead of pinning.* No write access needed, but it only postpones the failure staging had, and at around 90 MB an image for users-api, 50 versions is several gigabytes that still do not guarantee anything.
+
+*Checking every declared reference on every pull request.* Would fail every unrelated change until production is fixed, which teaches the team to ignore the check.
+
+*Reading the source environment's health from Argo CD.* Needs an Argo CD credential in CI, where no pipeline holds cluster access. The manifest history is the record that a version was deployed.
+
+*Opening the pull request with the workflow token.* A pull request opened by `GITHUB_TOKEN` starts no workflow, so the checks would never run on the pull requests that most need them.
+
+*Giving the manifests repository the build role.* It would gain push access to every image repository. Reading and tagging are two roles because IAM can only separate a pull request from `main` in the trust policy.
+
+*Waiting for the verify pipeline before shipping promotion.* Would have left staging unpromoted, and one image already pruned, for as long as cards 16 and 17 take.
+
+---
+
+## ADR-015 Staging shares the non-production load balancer
+
+**Status:** Implemented.
+
+**Context.** Card 22 exposes staging so a person can reach it and the end-to-end suite of card 17 has somewhere to run. Every exposed environment costs an Application Load Balancer, roughly 0.18 USD per eight-hour working day on top of the environment, and the manifests repository left the choice between one per environment and a shared one explicitly to cards 22 and 26.
+
+**Decision.** Development and staging join the `docket-non-production` ingress group, so the AWS Load Balancer Controller serves both hosts from one load balancer, with development's rules ordered first. Production does not join it and will have its own when card 26 exposes it. The group is named for what it is not, so adding production to it reads as wrong on sight.
+
+**Consequences.**
+- Exposing staging cost nothing extra; the listener routes by host to each namespace's own target groups, and neither host reaches the other environment.
+- Development and staging share a front door: a misconfiguration of the load balancer, or its deletion, takes both down together. Accepted for two environments without users.
+- Joining the group replaced development's own load balancer, leaving it unreachable for a few minutes while DNS followed. A revert does the same in the other direction.
+- Staging is public, with the same controls as development: fail-closed JWT and its own `ALLOWED_USERS` from its secret prefix.
+
+**Rejected alternatives.**
+
+*One load balancer per environment.* Full isolation of the front door, at a cost the brief's budget does not justify for an environment with no users.
+
+*One load balancer for all three.* Would put production's access logs, certificate listener and single point of failure together with two environments people break on purpose.
+
+---
+
 ## Open assumptions
 
 Statements this design takes as true and worth resolving before or during the Terraform work.
@@ -351,7 +418,7 @@ Statements this design takes as true and worth resolving before or during the Te
 
 **Instance type is constrained by the free plan, not only by capacity.** The account only allows launching free-tier-eligible instance types. A type outside that list fails silently, with the error visible only in CloudTrail. The implementation uses `m7i-flex.large`.
 
-**Only production requires manual approval.** It is assumed that promotion from `dev` to `staging` can be automatic after the pull request review. To be confirmed when the area 04 pipelines are defined.
+**Only production requires manual approval.** It is assumed that promotion from `dev` to `staging` can be automatic after the pull request review. To be confirmed when the area 04 pipelines are defined. *Resolved by [ADR-014](#adr-014-promotion-between-environments): staging syncs automatically once a reviewed promotion pull request merges; production also needs a manual sync.*
 
 **Observability starts from an existing base.** `auth-api` already includes Zipkin tracing instrumentation and the frontend already sends spans. Area 07 extends that starting point.
 
