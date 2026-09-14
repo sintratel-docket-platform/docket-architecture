@@ -116,12 +116,21 @@ jobs:
       # agent reads the one next to the code it is changing. Copies rot, so this
       # compares against the source. docket-architecture is public, which is what
       # lets a private repository fetch it with no credential.
+      #
+      # docket-architecture holds the source itself. There the comparison is with
+      # the standards/AGENTS.md in this same checkout: fetching main would compare
+      # a pull request that amends the constitution with the version it replaces,
+      # and no amendment could ever pass.
       - name: Compare against docket-architecture/standards/AGENTS.md
         run: |
-          curl -fsSL -o /tmp/canonical.md https://raw.githubusercontent.com/sintratel-docket-platform/docket-architecture/main/standards/AGENTS.md || {
-            echo "::warning::Could not fetch the canonical copy; skipping the drift check."
-            exit 0
-          }
+          if [ -f standards/AGENTS.md ]; then
+            cp standards/AGENTS.md /tmp/canonical.md
+          else
+            curl -fsSL -o /tmp/canonical.md https://raw.githubusercontent.com/sintratel-docket-platform/docket-architecture/main/standards/AGENTS.md || {
+              echo "::warning::Could not fetch the canonical copy; skipping the drift check."
+              exit 0
+            }
+          fi
           if diff -q /tmp/canonical.md AGENTS.md > /dev/null; then
             echo "AGENTS.md matches the canonical copy."
           else
