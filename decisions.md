@@ -33,6 +33,7 @@ Statuses: **Accepted** · **Assumption** (taken in the absence of guidance to th
 | [010](#adr-010-ephemeral-infrastructure-with-split-state) | Ephemeral infrastructure with split state | Accepted |
 | [011](#adr-011-pipeline-credentials-with-oidc-and-an-iam-role) | Pipeline credentials with OIDC and an IAM role | Accepted |
 | [012](#adr-012-modules-in-their-own-repository-versioned-by-tag) | Modules in their own repository, versioned by tag | Accepted |
+| [013](#adr-013-semantic-versioning-for-services-and-modules) | Semantic versioning for services and modules | Accepted |
 
 ---
 
@@ -284,6 +285,61 @@ Stacks consume modules as `git::…//modules/<name>?ref=v1.0.0`. Each environmen
 *One repository per module, nine in total.* What a private Terraform registry requires. Rejected because it takes the organisation from 12 repositories to 20 and multiplies a pipeline that had just been built once, for versioning granularity nobody has asked for at eight modules.
 
 *Private modules repository with a deploy key.* Would keep the account identifier question moot. Rejected because the modules contain no account identifier — they were audited before publishing — and because it reintroduces a long-lived credential into CI for no gain.
+
+---
+
+## ADR-013 Semantic versioning for services and modules
+
+**Status:** Accepted.
+
+**Context.** Every image the five service pipelines publish is identified only by `sha-<short-sha>`. That answers *which source* but not *which release*: nobody can say which release of a service development runs, or tell a fix from a breaking change by looking at a tag. Module releases in `docket-terraform-modules` are semantic, but each tag is cut by hand, and the release-please workflow written to automate it has never run, because the organisation does not let Actions open pull requests. Three later cards need a version to act on: release notes attach to one (card `24`), promotion moves one between environments (card `23`), and the first production release has to name the one it shipped (card `27`).
+
+Conventional Commits were adopted from the start precisely so this could be automated: `AGENTS.md` §5 already maps `feat` to a minor bump, `fix` and `perf` to a patch, and `!` or a `BREAKING CHANGE` footer to a major.
+
+**Decision.** Two mechanisms, because services and modules are released differently.
+
+| | Services | Modules |
+|---|---|---|
+| What a release is | Every image the pipeline publishes | A deliberate release, approved as a pull request |
+| Unit | One version per service, each with its own history | One version for the repository, as ADR-012 already set |
+| Calculated | At merge, in `service-ci`, before the build | By release-please, from the commits since the last tag |
+| Bump | Major, minor or patch from the commits since the last tag; **any other commit that publishes an image still bumps the patch** | Only `feat`, `fix`, `perf` and breaking changes touching `modules/` produce a release |
+| First version | `1.0.0` | Continues from `v3.0.0` |
+| Git tag | `vX.Y.Z` on the merge commit, created after the image is in the registry | `vX.Y.Z`, created by merging the release pull request |
+| Artifact | The image tagged `X.Y.Z` and `sha-<short-sha>`, with `org.opencontainers.image.version` and `org.opencontainers.image.revision` labels | The tag itself, pinned by stacks as `?ref=vX.Y.Z` |
+| Deployment | `newTag: X.Y.Z` in `docket-gitops`, written by the pipeline for development | Renovate proposes the `?ref=` bump per environment, never production; a person plans and applies |
+
+Service repositories merge by squash only, and the squash commit takes the pull request title, which `pr-conventions` validates. That makes the commit a merge puts on `main` the one input the version is read from.
+
+`AGENTS.md` §8 rule 5 allows a semantic version as an image tag. It is as fixed as a `sha-` tag only because ECR tags are immutable.
+
+**Why every publication gets a version.** A merge of a `ci:` or `chore:` change still builds and deploys a new image to development. Leaving it without a version would put an image in the registry and in a running environment that can only be identified by hash, which is the ambiguity this decision exists to remove.
+
+**Consequences.**
+- A deployment reads as a release. Argo CD shows `1.4.0`, and a promotion pull request reads `1.3.0 → 1.4.0` rather than two hashes. The sha still travels in the image label and in the deploy commit message.
+- Service versions climb fast in development, because every publication counts. No pre-release suffix distinguishes them; the version is what development runs, and staging and production only see it once promoted.
+- A version can never mean two images. If `X.Y.Z` already exists in the registry for a different commit, the run fails and names both commits instead of skipping the push. Runs on `main` queue rather than cancel one another, so a publication is never left half done.
+- Service tags live in private repositories, which cannot be protected on the current GitHub plan. The immutable registry tag is the backstop: a moved Git tag cannot change what the version deploys. Module tags stay protected by the *Immutable version tags* ruleset.
+- Enabling release-please required the organisation setting that lets Actions create **and approve** pull requests. No workflow approves today; if one ever did, it could satisfy the one-approval rule on the two public repositories, the only ones with branch protection.
+- The module release pull request is opened with the workflow token, so no workflow runs on it. It touches only the changelog and the manifest, and its title is fixed by configuration.
+- ECR keeps the last ten images per repository. Once staging or production pin an older version, it can be pruned. Nothing pins one yet; card `23` introduces the first long-lived pin and has to address retention.
+- Release notes are card `24`. release-please writes a changelog for modules as a side effect; its format is not settled here.
+
+**Rejected alternatives.**
+
+*release-please for services.* The image reaches development at merge, before any release pull request exists, so every deployment between two releases would carry only a hash.
+
+*semantic-release.* It brings a Node toolchain into Go, Java and Python repositories, and it tags at the end of its run, so the version needed before the build could only be read by scraping a dry run.
+
+*A third-party versioning action in the service pipeline.* The job that calculates the version also holds the build role, the `docket-gitops` App key and a token that can push tags. The rule is three patterns and a default; a short script in the repository, with its test, keeps third-party code out of that job. The project has already carried one compromised action.
+
+*Reserving the version with a Git tag before the build.* A build or scan that fails afterwards leaves a version with no image. Publishing first means the worst case is an image whose commit is not yet tagged, and the next run stops on the collision rather than deploying the wrong bytes.
+
+*Keeping `sha-` in `newTag` and carrying the version only in labels and commit messages.* No change to `AGENTS.md`, but every deployment and every promotion would still read as a hash.
+
+*A dedicated GitHub App to open module release pull requests.* Scoped to one repository, and checks would run on its pull requests. Rejected as a new credential to create, store and rotate for a pull request that changes only release files.
+
+*Tagging modules at merge, as services do.* No organisation setting to change, but a module release would stop being a separate decision, and every `fix` merge would send Renovate bump pull requests to every stack.
 
 ---
 
