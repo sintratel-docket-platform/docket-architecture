@@ -510,7 +510,7 @@ A finding that is accepted rather than fixed goes in the pull request with its j
 2. **Read-only `kubectl` is allowed** for diagnosis: `get`, `describe`, `logs`, `top`, `events`.
 3. **Namespaces are `dev`, `staging`, `prod`.** These match the Terraform `environments` variable. Never introduce a fourth name for the same thing.
 4. **Kustomize overlays, not duplicated manifests.** Base in `apps/<name>/base`, per-environment differences in `apps/<name>/overlays/<env>`.
-5. **Image tags are immutable digests or `sha-<commit>` tags.** Never `latest`.
+5. **Image tags are immutable: a semantic version (`1.4.0`), a `sha-<commit>` tag or a digest.** Never `latest`. A version tag is as fixed as a sha tag only because ECR tags are immutable; a registry that lets a tag be overwritten does not qualify. Every published image carries both a version and its `sha-<commit>` tag, and `docket-gitops` references the version (ADR-013).
 6. **Production sync policy is manual.** Automated sync with self-heal is for `dev` and `staging` only.
 7. **Promotion happens by changing an image reference in Git and opening a PR**, never by mutating a running workload.
 
