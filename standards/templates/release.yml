@@ -1,38 +1,47 @@
-# Release automation, disabled until one organisation setting changes.
+# Release automation for the modules, ADR-013 in docket-architecture.
 #
-# release-please reads Conventional Commits, opens a pull request that bumps
-# the version and writes the changelog, and merging it creates the tag that
-# docket-infrastructure pins with ?ref=. That is the mechanism card #12 needs.
+# On every push to main, release-please reads the Conventional Commits that
+# touched modules/ since the last release. When a feat, fix, perf or breaking
+# change is among them, it opens or updates one release pull request with the
+# next version and the changelog. A person approves and merges it, which is
+# the deliberate act; merging creates the vX.Y.Z tag that
+# docket-infrastructure pins with ?ref=, and Renovate proposes the bump there.
 #
-# It cannot run today. The organisation sets workflow permissions to read-only
-# and forbids Actions from creating pull requests, and a repository cannot
-# override that upward:
+# What it reads lives in two files: release-please-config.json (the package,
+# the tag format, the starting commit) and .release-please-manifest.json (the
+# last released version).
 #
-#   Write permissions for workflows are disabled by the organization
-#   GitHub Actions is not permitted to create or approve pull requests
+# It needs one organisation setting: Settings, Actions, General, Workflow
+# permissions, "Allow GitHub Actions to create and approve pull requests".
+# The default token stays read-only; this workflow raises it below.
 #
-# To enable it: organisation Settings, Actions, General, Workflow permissions,
-# choose "Read and write permissions" and tick "Allow GitHub Actions to create
-# and approve pull requests". Then change the trigger below to `push` on main.
-#
-# Until then, releases are cut by hand, which is two commands and is documented
-# in the README. This file is kept rather than deleted so the automation is one
-# setting and one line away rather than a rewrite.
+# The release pull request is opened with GITHUB_TOKEN, so no workflow runs on
+# it. It only touches the changelog and the version files, and its title is
+# fixed by the configuration.
 
 name: Release
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
 
+# Two runs at once would race to update the same release pull request.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
-          release-type: simple
           token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
