@@ -103,7 +103,7 @@ Hold product: application code, infrastructure, manifests, technical documentati
 | `docket-architecture` | Delivery | Architecture documents and ADRs | **Public** |
 | `docket-infrastructure` | Delivery | Terraform **stacks** — the live infrastructure | Private |
 | `docket-terraform-modules` | Delivery | Reusable Terraform **modules**, versioned by tag | **Public** |
-| `docket-gitops` | Delivery | Kubernetes manifests, Argo CD applications | **Public** |
+| `docket-gitops` | Delivery | Kubernetes manifests, Argo CD applications | Private |
 | `docket-local` | Delivery | Local Compose environment | Private |
 | `docket-auth-api` | Delivery | Go service | Private |
 | `docket-users-api` | Delivery | Java / Spring Boot service | Private |
@@ -111,7 +111,7 @@ Hold product: application code, infrastructure, manifests, technical documentati
 | `docket-log-message-processor` | Delivery | Python worker | Private |
 | `docket-frontend` | Delivery | Vue.js SPA | Private |
 
-**Three repositories are public.** Never write an account identifier, account-qualified ARN, internal hostname, real endpoint, credential, named principal, or client data into `docket-architecture`, `docket-gitops` or `docket-terraform-modules`.
+**Two repositories are public.** Never write an account identifier, account-qualified ARN, internal hostname, real endpoint, credential, named principal, or client data into `docket-architecture` or `docket-terraform-modules`. `docket-gitops` is private because its manifests carry the registry address, which includes the account identifier; being private, it cannot have branch protection on the current GitHub plan (card #39).
 
 `docket-terraform-modules` is public by design, so that `terraform init` clones it without a credential and the project keeps its "no static keys" posture (ADR-011). **Git history is public too** — a leaked identifier needs history rewriting, not a follow-up commit. CI enforces this, but do not rely on CI to catch what you should not have written.
 
