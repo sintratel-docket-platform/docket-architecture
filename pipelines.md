@@ -66,7 +66,10 @@ a module change reaches production only when someone chooses it.
 credentials. Every deployment happens because Argo CD read a commit.
 
 **Verification gates promotion.** `verify` turns a deployed version into a promotable one,
-and its result is the evidence a promotion rests on.
+and its result is the evidence a promotion rests on. The contract is fixed by ADR-014: a
+commit status named `verify` on the `docket-gitops` commit that deployed the version.
+Until cards 16 and 17 write it, `gitops-ci` reports the gate as a warning rather than
+blocking.
 
 ## The test pyramid, and where each level runs
 
@@ -236,6 +239,19 @@ Approving and merging declares the version in Git, and the cluster is untouched 
 moment. The change lands when a person triggers the sync, because the production
 Application uses a manual sync policy while `dev` and `staging` are automated.
 
+**Built by card 23 (ADR-014).** Step 1 is the `promote` workflow in `docket-gitops`, run
+with a target and a set of services: it opens the pull request as the
+`docket-gitops-writer` App, with the *from* and *to* versions, the service tags, the image
+digests and the commit that deployed each version to the source environment. On that pull
+request, and on any other that moves a `newTag`, `gitops-ci` checks that each image
+exists, that the version came from the previous environment and the verify gate. After
+the merge, a pin job tags every image staging and production declare
+`promoted-<environment>-<tag>`, which the registry lifecycle keeps.
+
+Staging follows the same sequence without steps 6 and 7: it syncs on its own once the
+promotion merges. The first staging promotion moved four services from `sha-` tags to
+`1.0.0` this way; production is first promoted by card 27.
+
 ## Sequence 3. Turning the cluster on and off
 
 ![Cluster lifecycle](img/pipeline-cluster-lifecycle.png)
@@ -308,7 +324,7 @@ one blocks a merge.
 | `pr-conventions` | every pull request, all nine repositories | Conventional Commit title, branch name pattern, `AGENTS.md` drift against its canonical source | yes |
 | `terraform-ci` | pull requests touching Terraform | `fmt`, `validate`, `tflint`, Trivy config scan, Checkov, OPA policy against saved plans | yes |
 | `module-ci` | pull requests touching modules | account identifier and secret scan, `fmt`, `validate`, plan mode tests | yes |
-| `gitops-ci` | pull requests in `docket-gitops` | `kustomize build`, manifest schema, the image tag exists in the registry | planned |
+| `gitops-ci` | pull requests in `docket-gitops` touching the manifests | `kustomize build` of every environment, each moved image exists in ECR, the version came from the previous environment, the verify gate (ADR-014) | yes |
 
 Gates run cheapest first, so a formatting error costs seconds. None of them holds cloud
 credentials.
@@ -344,9 +360,11 @@ groups do not cross repositories, so two merges landing together collide on the 
 step needs a rebase and a bounded retry, and it needs to fail visibly rather than leave a
 tag half written.
 
-**How a version is recorded as promotable.** Sequence 5 ends with `verify` writing that
-signal. A Git tag, a status check on the commit, and a file in the repository are all
-workable, and each has different consequences for how the promotion pipeline reads it.
+**How a version is recorded as promotable. A commit status.** Sequence 5 ends with
+`verify` writing that signal, and ADR-014 fixed it as a status named `verify` on the
+`docket-gitops` commit that deployed the version: visible next to the change it judges, and
+readable without access to the private service repositories. A Git tag cannot carry a
+failure, and a file needs a commit per run.
 
 **Where SonarQube runs.** Self hosted inside the cluster or SonarCloud. The choice changes
 the credentials the pipeline needs, and it belongs to card 11.
