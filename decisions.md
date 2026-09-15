@@ -325,7 +325,7 @@ Service repositories merge by squash only, and the squash commit takes the pull 
 - Enabling release-please required the organisation setting that lets Actions create **and approve** pull requests. No workflow approves today; if one ever did, it could satisfy the one-approval rule on the two public repositories, the only ones with branch protection.
 - The module release pull request is opened with the workflow token, so no workflow runs on it. It touches only the changelog and the manifest, and its title is fixed by configuration.
 - ECR keeps the last ten images per repository. Once staging or production pin an older version, it can be pruned. Nothing pins one yet; card `23` introduces the first long-lived pin and has to address retention.
-- Release notes are card `24`. release-please writes a changelog for modules as a side effect; its format is not settled here.
+- Release notes are card `24`. release-please writes a changelog for modules as a side effect; its format is not settled here. *Settled by [ADR-019](#adr-019-release-notes).*
 
 **Rejected alternatives.**
 
@@ -507,6 +507,42 @@ ADR-015's decision stands: development and staging share one load balancer, and 
 *The shared Gateway in the `dev` namespace.* Staging's exposure would depend on development's Application.
 
 *Another Gateway API implementation.* A second controller in front of the same ALBs the current one already manages.
+
+---
+
+## ADR-019 Release notes
+
+**Status:** Implemented.
+
+**Context.** Every service publishes a semantic version on merge and tags its commit (ADR-013), but nothing said what a version contains: the five service repositories had tags and no release notes. Modules already had GitHub Releases from release-please, grouped by type, without the roadmap card. The first production release (card 27) has to name what it ships, and card 24 asks for notes per release, linked to the published version, with changes, fixes and references to the work, in a consistent format. The team lead decided that a release is both a service version and a production release, which consolidates the notes of the versions it moves. The promotion workflow runs in the manifests repository, which holds no credential to read the private service repositories.
+
+**Decision.**
+
+| Piece | Where | What it does |
+|---|---|---|
+| Notes of a version | `release-notes.sh`, identical in the five service repositories, with a test suite | Reads the first-parent commits since the previous version tag and prints *Features*, *Fixes* and *Other changes* by Conventional Commit type; each entry links its pull request, its commit and every roadmap card its `Refs:` lines name; then the image, without the registry host, and a comparison with the previous version |
+| Publication | The pipeline's image job, right after the version tag | A GitHub Release on the tag with those notes, and a copy in the manifests repository, `releases/<service>/<version>.md`, in the same commit that deploys the version to development |
+| Existing versions | The same pipeline, dispatched with a tag | Publishes or regenerates the notes of a version without building anything |
+| Consolidation | The promotion workflow in the manifests repository | A promotion to production embeds the notes of every version it moves; a promotion to staging links each release |
+| Modules | release-please, unchanged | Their existing releases stand |
+
+**Consequences.**
+- Every service version has notes the moment it exists, and every production release pull request carries what it changes, next to its approval status and sync record (ADR-016).
+- The copy in the manifests repository needs no new credential: the write that deploys a version already carries its notes.
+- A card reference written as `#N` in a service repository would link that repository's issue; the notes rewrite it to the roadmap card.
+- Five copies of the same script can drift, the same debt the version script already carries; their checksums are compared when they change.
+- A correction changes two copies, the release and the file in the manifests repository.
+- Module notes still do not name the roadmap card.
+
+**Rejected alternatives.**
+
+*release-please for services.* It versions by merging a release pull request, which ADR-013 rejected for services.
+
+*GitHub's generated release notes.* They group by pull request labels the project does not use and cannot rewrite card references.
+
+*Granting the promotion workflow read access to the service repositories.* A permission change on an organisation App for information the existing deployment write already carries.
+
+*Links only in the production pull request.* Consolidates nothing a reviewer can read in place.
 
 ---
 
