@@ -325,7 +325,7 @@ Service repositories merge by squash only, and the squash commit takes the pull 
 - Enabling release-please required the organisation setting that lets Actions create **and approve** pull requests. No workflow approves today; if one ever did, it could satisfy the one-approval rule on the two public repositories, the only ones with branch protection.
 - The module release pull request is opened with the workflow token, so no workflow runs on it. It touches only the changelog and the manifest, and its title is fixed by configuration.
 - ECR keeps the last ten images per repository. Once staging or production pin an older version, it can be pruned. Nothing pins one yet; card `23` introduces the first long-lived pin and has to address retention.
-- Release notes are card `24`. release-please writes a changelog for modules as a side effect; its format is not settled here.
+- Release notes are card `24`. release-please writes a changelog for modules as a side effect; its format is not settled here. *Settled by [ADR-019](#adr-019-release-notes).*
 
 **Rejected alternatives.**
 
@@ -507,6 +507,83 @@ ADR-015's decision stands: development and staging share one load balancer, and 
 *The shared Gateway in the `dev` namespace.* Staging's exposure would depend on development's Application.
 
 *Another Gateway API implementation.* A second controller in front of the same ALBs the current one already manages.
+
+---
+
+## ADR-018 Production's Argo CD project, gateway and restore on start
+
+**Status:** Implemented.
+
+**Context.** Card 26 provisions production before its first release (card 27). Production was declared in the manifests repository and had never run: its Application sat in Argo CD's `default` project, which lets an Application deploy anything anywhere, and it had no exposure of its own, since the non-production gateway refuses routes from `prod` (ADR-017) and ADR-015 gives production its own load balancer. The cluster is recreated on every start, and the course requires a manual sync policy on the production Application, so production would start empty after every start until someone synced it again. Per-person Argo CD access (card 19) and metrics and alerts (card 20) were not done; the team lead decided to go ahead and state those gaps.
+
+**Decision.**
+
+| Piece | Where | What it does |
+|---|---|---|
+| Production's gateway | The manifests repository, in the `prod` namespace, inside production's own Application | `Gateway docket-production` of the `docket-alb` class, its own load balancer, listeners accepting routes from `prod` only, the redirect to HTTPS; the route for production's host |
+| Argo CD project `production` | The manifests repository, created by the root Application a sync wave before the Applications | Source: the manifests repository only; destination: the `prod` namespace only; no cluster-scoped object; only the kinds production renders |
+| Pipeline guards | The manifests repository's CI | Refuse a production Application outside the project, a project with a cluster-scoped entry or a second destination, and a rendered kind the project does not list |
+| Release marker | The production sync record workflow | Moves the tag `production` to the revision an approver synced and recorded |
+| Restore on start | The start workflow in the infrastructure repository | Reads that tag over SSH with the read-only deploy key Argo CD uses, and asks Argo CD to sync production to exactly that commit; no tag, no action; never fails the start |
+
+The production Application keeps its manual sync policy. The restore re-applies a release already approved and recorded; a change merged and not yet synced still waits for a person.
+
+**Consequences.**
+- One Application declares everything production is, so its first sync brings up the load balancer, the DNS record and the workloads as one approved, recorded act.
+- Production and non-production Applications never write to the same namespace.
+- A new kind in a production manifest is refused by the pipeline before a release, not by Argo CD during one.
+- After every start, production runs its last release within minutes, with no one syncing; before the first release it stays empty.
+- The start workflow now reads a credential, the deploy key, which was already in SSM and read by Terraform.
+- The tag can be moved by hand by anyone with write access to the manifests repository; the revision it names carries a `production-sync` status to check.
+- Who may sync production is still not enforced in Argo CD (card 19), and production has no metrics or alerts (card 20).
+
+**Rejected alternatives.**
+
+*Automated sync pinned to a released commit.* Restores itself on every start, but breaks the course requirement of a manual sync policy on the production Application and `AGENTS.md` section 8.
+
+*Production's gateway in the shared `gateway` namespace with an Application of its own.* Two Applications to sync for one release, and a production project allowed into a namespace non-production also writes to.
+
+*A project that restricts destinations only.* A production manifest could still create any namespaced kind, a Role or a LoadBalancer Service among them.
+
+*A GitHub token in the infrastructure repository to read the sync statuses.* A new credential for information the tag already carries.
+
+*Syncing on start what `main` declares.* Applies a production change that was merged and never synced, which the policy leaves to a person, and brings production up before its first release.
+
+---
+
+## ADR-019 Release notes
+
+**Status:** Implemented.
+
+**Context.** Every service publishes a semantic version on merge and tags its commit (ADR-013), but nothing said what a version contains: the five service repositories had tags and no release notes. Modules already had GitHub Releases from release-please, grouped by type, without the roadmap card. The first production release (card 27) has to name what it ships, and card 24 asks for notes per release, linked to the published version, with changes, fixes and references to the work, in a consistent format. The team lead decided that a release is both a service version and a production release, which consolidates the notes of the versions it moves. The promotion workflow runs in the manifests repository, which holds no credential to read the private service repositories.
+
+**Decision.**
+
+| Piece | Where | What it does |
+|---|---|---|
+| Notes of a version | `release-notes.sh`, identical in the five service repositories, with a test suite | Reads the first-parent commits since the previous version tag and prints *Features*, *Fixes* and *Other changes* by Conventional Commit type; each entry links its pull request, its commit and every roadmap card its `Refs:` lines name; then the image, without the registry host, and a comparison with the previous version |
+| Publication | The pipeline's image job, right after the version tag | A GitHub Release on the tag with those notes, and a copy in the manifests repository, `releases/<service>/<version>.md`, in the same commit that deploys the version to development |
+| Existing versions | The same pipeline, dispatched with a tag | Publishes or regenerates the notes of a version without building anything |
+| Consolidation | The promotion workflow in the manifests repository | A promotion to production embeds the notes of every version it moves; a promotion to staging links each release |
+| Modules | release-please, unchanged | Their existing releases stand |
+
+**Consequences.**
+- Every service version has notes the moment it exists, and every production release pull request carries what it changes, next to its approval status and sync record (ADR-016).
+- The copy in the manifests repository needs no new credential: the write that deploys a version already carries its notes.
+- A card reference written as `#N` in a service repository would link that repository's issue; the notes rewrite it to the roadmap card.
+- Five copies of the same script can drift, the same debt the version script already carries; their checksums are compared when they change.
+- A correction changes two copies, the release and the file in the manifests repository.
+- Module notes still do not name the roadmap card.
+
+**Rejected alternatives.**
+
+*release-please for services.* It versions by merging a release pull request, which ADR-013 rejected for services.
+
+*GitHub's generated release notes.* They group by pull request labels the project does not use and cannot rewrite card references.
+
+*Granting the promotion workflow read access to the service repositories.* A permission change on an organisation App for information the existing deployment write already carries.
+
+*Links only in the production pull request.* Consolidates nothing a reviewer can read in place.
 
 ---
 
