@@ -55,10 +55,11 @@ decision, not an oversight, and says why.
 | RBAC for operators | `exec` and `port-forward` allowed | allowed | **not allowed** | Diagnosing a rehearsal needs a shell; production does not get one |
 | Network isolation | namespace-scoped policy, load balancer subnets admitted | same | same | No traffic crosses environments |
 | Secrets | `/docket/dev/`, read by `docket-dev-eso` | `/docket/staging/` | `/docket/prod/` | Each environment can only name, and only read, its own prefix |
-| Host | `dev.docket.<domain>` | `staging.docket.<domain>` | `docket.<domain>`, not yet exposed | One wildcard certificate covers all three |
-| Load balancer | shared `docket-non-production` group | shared with `dev` | its own, card 26 | [ADR-015](decisions.md#adr-015-staging-shares-the-non-production-load-balancer) |
+| Host | `dev.docket.<domain>` | `staging.docket.<domain>` | `docket.<domain>`, once production is synced | One wildcard certificate covers all three |
+| Load balancer | shared `docket-non-production` gateway | shared with `dev` | its own gateway, `docket-production`, in `prod` | [ADR-015](decisions.md#adr-015-staging-shares-the-non-production-load-balancer), [ADR-017](decisions.md#adr-017-exposure-through-the-gateway-api), [ADR-018](decisions.md#adr-018-productions-argo-cd-project-gateway-and-restore-on-start) |
 | How a version arrives | the service pipeline writes it on merge | a promotion pull request, checked by `gitops-ci` | a promotion pull request approved by a named approver | [ADR-013](decisions.md#adr-013-semantic-versioning-for-services-and-modules), [ADR-014](decisions.md#adr-014-promotion-between-environments) |
-| Argo CD sync | automated, self-heal, prune | automated, self-heal, prune | **manual** | The merge declares production; a person applies it |
+| Argo CD sync | automated, self-heal, prune | automated, self-heal, prune | **manual**; every start restores the last recorded release | The merge declares production; a person applies it; a start never applies anything newer than the last release ([ADR-018](decisions.md#adr-018-productions-argo-cd-project-gateway-and-restore-on-start)) |
+| Argo CD project | `default` | `default` | `production`: this repository, the `prod` namespace, no cluster-scoped objects, only the kinds production renders | A production Application cannot deploy elsewhere or anything unexpected ([ADR-018](decisions.md#adr-018-productions-argo-cd-project-gateway-and-restore-on-start)) |
 | Images kept in the registry | the last ten | every declared image pinned `promoted-staging-*` | pinned `promoted-production-*` | An environment must never declare a pruned image |
 | Replicas, requests, limits, environment variables | from the base manifests | same | same | Staging rehearses production's configuration exactly |
 
@@ -94,7 +95,7 @@ The AWS credentials the pipeline uses are resolved through OIDC federation with 
 
 ## Domain, DNS and TLS
 
-Each environment resolves through a different host towards the same ALB, and each environment's `HTTPRoute` claims its `Host` on the shared gateway.
+Each environment resolves through a different host. Development and staging reach the shared non-production ALB and production its own; each environment's `HTTPRoute` claims its `Host` on its gateway.
 
 | Environment | Host |
 |---|---|

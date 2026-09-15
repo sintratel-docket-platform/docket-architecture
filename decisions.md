@@ -510,6 +510,47 @@ ADR-015's decision stands: development and staging share one load balancer, and 
 
 ---
 
+## ADR-018 Production's Argo CD project, gateway and restore on start
+
+**Status:** Implemented.
+
+**Context.** Card 26 provisions production before its first release (card 27). Production was declared in the manifests repository and had never run: its Application sat in Argo CD's `default` project, which lets an Application deploy anything anywhere, and it had no exposure of its own, since the non-production gateway refuses routes from `prod` (ADR-017) and ADR-015 gives production its own load balancer. The cluster is recreated on every start, and the course requires a manual sync policy on the production Application, so production would start empty after every start until someone synced it again. Per-person Argo CD access (card 19) and metrics and alerts (card 20) were not done; the team lead decided to go ahead and state those gaps.
+
+**Decision.**
+
+| Piece | Where | What it does |
+|---|---|---|
+| Production's gateway | The manifests repository, in the `prod` namespace, inside production's own Application | `Gateway docket-production` of the `docket-alb` class, its own load balancer, listeners accepting routes from `prod` only, the redirect to HTTPS; the route for production's host |
+| Argo CD project `production` | The manifests repository, created by the root Application a sync wave before the Applications | Source: the manifests repository only; destination: the `prod` namespace only; no cluster-scoped object; only the kinds production renders |
+| Pipeline guards | The manifests repository's CI | Refuse a production Application outside the project, a project with a cluster-scoped entry or a second destination, and a rendered kind the project does not list |
+| Release marker | The production sync record workflow | Moves the tag `production` to the revision an approver synced and recorded |
+| Restore on start | The start workflow in the infrastructure repository | Reads that tag over SSH with the read-only deploy key Argo CD uses, and asks Argo CD to sync production to exactly that commit; no tag, no action; never fails the start |
+
+The production Application keeps its manual sync policy. The restore re-applies a release already approved and recorded; a change merged and not yet synced still waits for a person.
+
+**Consequences.**
+- One Application declares everything production is, so its first sync brings up the load balancer, the DNS record and the workloads as one approved, recorded act.
+- Production and non-production Applications never write to the same namespace.
+- A new kind in a production manifest is refused by the pipeline before a release, not by Argo CD during one.
+- After every start, production runs its last release within minutes, with no one syncing; before the first release it stays empty.
+- The start workflow now reads a credential, the deploy key, which was already in SSM and read by Terraform.
+- The tag can be moved by hand by anyone with write access to the manifests repository; the revision it names carries a `production-sync` status to check.
+- Who may sync production is still not enforced in Argo CD (card 19), and production has no metrics or alerts (card 20).
+
+**Rejected alternatives.**
+
+*Automated sync pinned to a released commit.* Restores itself on every start, but breaks the course requirement of a manual sync policy on the production Application and `AGENTS.md` section 8.
+
+*Production's gateway in the shared `gateway` namespace with an Application of its own.* Two Applications to sync for one release, and a production project allowed into a namespace non-production also writes to.
+
+*A project that restricts destinations only.* A production manifest could still create any namespaced kind, a Role or a LoadBalancer Service among them.
+
+*A GitHub token in the infrastructure repository to read the sync statuses.* A new credential for information the tag already carries.
+
+*Syncing on start what `main` declares.* Applies a production change that was merged and never synced, which the policy leaves to a person, and brings production up before its first release.
+
+---
+
 ## ADR-019 Release notes
 
 **Status:** Implemented.
