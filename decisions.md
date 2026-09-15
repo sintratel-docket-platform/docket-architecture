@@ -408,6 +408,8 @@ A promotion moves services, not environments: each service at its own version, s
 
 *One load balancer for all three.* Would put production's access logs, certificate listener and single point of failure together with two environments people break on purpose.
 
+**Mechanism superseded by [ADR-017](#adr-017-exposure-through-the-gateway-api).** The ingress group and its ordering annotations are replaced by one Gateway whose HTTPS listener accepts routes from `dev` and `staging`. The decision above stands.
+
 ---
 
 ## ADR-016 Production approval without branch protection
@@ -457,6 +459,54 @@ An emergency change, labelled as one, may merge without a prior approval. Its au
 *Auditing only after the merge.* Nothing would be visible while the pull request is open.
 
 *Argo CD's GitHub notifier writing the sync status.* A GitHub credential inside the cluster, and the status would still name the shared account.
+
+---
+
+## ADR-017 Exposure through the Gateway API
+
+**Status:** Implemented.
+
+**Context.** Development and staging were exposed through one `Ingress` per environment, joined into the `docket-non-production` ingress group (ADR-015), with HTTPS from an ACM certificate found by host (ADR-008) and DNS written by external-dns. The Ingress API is frozen, and the Kubernetes project points to the Gateway API as its successor; the course asked for the refactor, with what the Gateway API needs installed with Helm. Two cards were about to build on the entry point, health checks (card 20) and production's exposure (card 26). The AWS Load Balancer Controller the platform already runs implements the Gateway API on an ALB, and its `v3.5.0` is built for Gateway API `v1.6.0`. Its chart installs the controller's own Gateway CRDs, but not the standard ones, and the Gateway API project publishes those only as a manifest.
+
+**Decision.** Exposure moves to the Gateway API on the same controller, and its pieces are split by who decides them.
+
+| Piece | Where | Decides |
+|---|---|---|
+| Standard CRDs, Gateway API `v1.6.0` | A local chart in the platform stack carrying the upstream manifest unmodified in `crds/`, installed with Helm before the controller | The API version, the one the controller is built for |
+| Controller feature gates | The controller's Helm values | ALB gateway on; layer 4 gateway and listener sets off |
+| `GatewayClass docket-alb` and its class configuration | A second local chart, installed after the controller | What every load balancer shares: internet-facing, IP targets |
+| `Gateway docket-non-production` | The manifests repository, in a `gateway` namespace, with an Argo CD Application of its own | That development and staging share one load balancer, its listeners, and which namespaces may attach: `dev` and `staging` only |
+| `HTTPRoute docket` per environment | The manifests repository, one overlay per environment | The host and the path split |
+| DNS | external-dns reads the `gateway-httproute` source | Records from route hostnames |
+
+ADR-015's decision stands: development and staging share one load balancer, and production gets its own. Its mechanism, the ingress group, is replaced by one Gateway with an HTTPS listener open to both namespaces.
+
+**Consequences.**
+- The CRDs must exist before the controller starts, or its Gateway support stays off; Terraform orders the releases.
+- Helm never upgrades or deletes `crds/`. A failed release cannot delete every Gateway and route, and a version change reaches the cluster on its next start, which recreates it.
+- The controller defaults would give an internal load balancer and node-port targets; the class configuration sets both, as the Ingress annotations did.
+- The certificate is still discovered from hostnames; the controller does not support `certificateRefs`, so no certificate appears in any manifest.
+- The HTTP to HTTPS redirect is a route on the Gateway's HTTP listener, and the controller orders listener rules by path length, so no ordering annotations remain.
+- Production cannot attach to the shared Gateway: its HTTPS listener selects namespaces by the name label Kubernetes maintains.
+- The teardown deletes Gateways and routes while the controller is alive, so its finalizer removes the load balancer before the cluster is destroyed.
+- Health checks still use the controller's defaults, as they did; card 20 sets them through `TargetGroupConfiguration`.
+- The manifest in the local chart is 1.2 MB, vendored by hand; changing the version is replacing that file and its recorded checksum.
+
+**Rejected alternatives.**
+
+*Keeping the Ingress.* It works, but the next two cards would each have been written twice.
+
+*A community chart, or another implementation's chart, for the CRDs.* A third party between the Gateway API project and the cluster, or a second implementation's naming and versioning in a cluster that does not run it.
+
+*`kubectl apply` in the start workflow, or `kubernetes_manifest`.* Not Helm, and the second needs the CRDs to exist at plan time.
+
+*Everything in the platform stack.* Exposure would change through `terraform apply` instead of a reviewed manifest, and card 26 would add production's Gateway to Terraform.
+
+*Everything in the manifests repository.* The class would depend on an Argo CD Application instead of being installed with the controller.
+
+*The shared Gateway in the `dev` namespace.* Staging's exposure would depend on development's Application.
+
+*Another Gateway API implementation.* A second controller in front of the same ALBs the current one already manages.
 
 ---
 
