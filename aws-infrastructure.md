@@ -60,9 +60,9 @@ The nodes live in private subnets, with no public IP and unreachable from the in
 
 No rule opens `22/tcp` anywhere. Administrative access is resolved through SSM. See [Administrative access](#administrative-access).
 
-**Target registration mode.** The AWS Load Balancer Controller registers ALB targets in `ip` mode, its default behaviour on EKS, taking advantage of the AWS CNI assigning each pod a real VPC address. The ALB delivers traffic straight to the pod, without going through a NodePort or kube-proxy.
+**Target registration mode.** The AWS Load Balancer Controller registers ALB targets in `ip` mode, set for every gateway by the `docket-alb` class configuration (ADR-017), taking advantage of the AWS CNI assigning each pod a real VPC address. The ALB delivers traffic straight to the pod, without going through a NodePort or kube-proxy.
 
-That is where the `sg-nodes` rule comes from: the port to open is the container port, and the NodePort range goes unused. If this ever changes to `instance` mode with the `alb.ingress.kubernetes.io/target-type` annotation, this rule has to be revisited.
+That is where the `sg-nodes` rule comes from: the port to open is the container port, and the NodePort range goes unused. If this ever changes to `instance` mode, the controller's default for a gateway without that configuration, this rule has to be revisited.
 
 ## Compute
 
@@ -164,7 +164,7 @@ This flow runs in parallel with the application deployment. Argo CD synchronises
 
 ## Domain, DNS and TLS
 
-Route 53 hosts the zone of the domain purchased by the team. Each environment resolves through a different host towards the same ALB, using **ALIAS** records, and the Ingress separates traffic by `Host` header.
+Route 53 hosts the zone of the domain purchased by the team. Each environment resolves through a different host towards the same ALB, using **ALIAS** records, and each environment's `HTTPRoute` claims its `Host` on the shared gateway.
 
 | Environment | Host |
 |---|---|
@@ -184,11 +184,11 @@ One manual step remains, executed once: delegating the domain nameservers at the
 
 The `destroy` and `apply` cycle has a mandatory order, because not every resource is created by Terraform.
 
-**The problem.** The ALB is not created by Terraform. The AWS Load Balancer Controller creates it from inside the cluster, out of the `Ingress` objects, so it does not appear in Terraform state. A `terraform destroy` with the `Ingress` objects still present removes the cluster along with the controller, which dies before it can delete the load balancer. The result is an orphaned ALB billing by the hour, its associated security groups, and frequently a `destroy` that fails because it cannot delete the VPC while those security groups are still in use.
+**The problem.** The ALB is not created by Terraform. The AWS Load Balancer Controller creates it from inside the cluster, out of the `Gateway` objects, so it does not appear in Terraform state. A `terraform destroy` with the `Gateway` objects still present removes the cluster along with the controller, which dies before it can delete the load balancer. The result is an orphaned ALB billing by the hour, its associated security groups, and frequently a `destroy` that fails because it cannot delete the VPC while those security groups are still in use.
 
 **Shutdown order.** Automated in `make teardown`:
 
-1. Delete the Argo CD `Application` objects and the `Ingress` objects of the three namespaces, then wait for external-dns to withdraw its records.
+1. Delete the Argo CD `Application` objects, then the `HTTPRoute` and `Gateway` objects, then wait for external-dns to withdraw its records.
 2. Destroy the `platform` stack, whose namespaces are now empty.
 3. Destroy the `ephemeral` stack.
 4. Verify nothing was left billing.
@@ -196,8 +196,8 @@ The `destroy` and `apply` cycle has a mandatory order, because not every resourc
 **Start-up order.**
 
 1. `terraform apply` on the `ephemeral` stack.
-2. `terraform apply` on the `platform` stack, which installs the namespaces and the controllers, Argo CD among them.
-3. Argo CD synchronises the manifests and creates the `Ingress` objects.
+2. `terraform apply` on the `platform` stack, which installs the namespaces, the Gateway API CRDs and class, and the controllers, Argo CD among them.
+3. Argo CD synchronises the manifests and creates the `Gateway` and `HTTPRoute` objects.
 4. The controller creates the ALB, with a new DNS name.
 5. `external-dns` updates the Route 53 ALIAS records to point at the new ALB.
 

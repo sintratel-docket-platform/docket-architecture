@@ -85,7 +85,7 @@ The three levels the deliverables document requires belong in different places.
 
 The split follows from what each level needs. Unit tests need a compiler. Integration
 tests need several services talking to each other and to Redis. End to end tests need the
-frontend, the APIs and the queue all reachable through the ingress.
+frontend, the APIs and the queue all reachable through the gateway.
 
 Coverage is produced at the unit level and consumed by SonarQube. Integration and end to
 end produce pass or fail plus traces, and their result is what the promotion gate reads.

@@ -16,7 +16,7 @@ Five microservices and a message queue. Each service is deployed separately and 
 
 | Component | Stack | Role | Environment variables |
 |---|---|---|---|
-| **Frontend** | Vue.js | Web interface and proxy towards the APIs. The only publicly exposed component, through the Ingress the AWS Load Balancer Controller materialises as an ALB with an ACM certificate. | `PORT`, `AUTH_API_ADDRESS`, `TODOS_API_ADDRESS`, `ZIPKIN_URL` |
+| **Frontend** | Vue.js | Web interface and proxy towards the APIs. The only publicly exposed component, through the gateway the AWS Load Balancer Controller materialises as an ALB with an ACM certificate. | `PORT`, `AUTH_API_ADDRESS`, `TODOS_API_ADDRESS`, `ZIPKIN_URL` |
 | **Auth API** | Go | Authentication. `POST /login` validates credentials against Users API and issues a JWT. | `AUTH_API_PORT`, `USERS_API_ADDRESS`, `JWT_SECRET`, `ZIPKIN_URL` |
 | **Users API** | Java, Spring Boot | User profiles, read only: `GET /users` and `GET /users/:username`. | `SERVER_PORT`, `JWT_SECRET` |
 | **Todos API** | Node.js | Task CRUD: `GET`, `POST` and `DELETE /todos`. Publishes an event on every create and delete. | `TODO_API_PORT`, `JWT_SECRET`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_CHANNEL`, `ZIPKIN_URL` |
@@ -27,7 +27,7 @@ Five microservices and a message queue. Each service is deployed separately and 
 
 ### Authentication
 
-The browser enters through the Ingress and reaches the Frontend, which exposes `/login` as a proxy towards Auth API. To validate the credentials, Auth API requests the profile from Users API (`GET /users/:username`) and compares it against its list of allowed credentials. On a match it issues the JWT the rest of the session will use.
+The browser enters through the gateway and reaches the Frontend, which exposes `/login` as a proxy towards Auth API. To validate the credentials, Auth API requests the profile from Users API (`GET /users/:username`) and compares it against its list of allowed credentials. On a match it issues the JWT the rest of the session will use.
 
 > To call Users API, Auth API signs its own service token with the same `JWT_SECRET` and sends it as a `Bearer`. The shared secret therefore serves two purposes: it validates user tokens and it authenticates the call between services.
 

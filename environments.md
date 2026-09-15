@@ -16,7 +16,7 @@ Alongside the application, running inside the cluster:
 |---|---|
 | **Argo CD** | Synchronises the three namespaces against the manifest repository |
 | **External Secrets Operator** | Materialises the parameters it reads from SSM Parameter Store as Kubernetes `Secret` objects, per namespace |
-| **AWS Load Balancer Controller** | Translates `Ingress` objects into ALB configuration |
+| **AWS Load Balancer Controller** | Translates a `Gateway` and its `HTTPRoute`s into ALB configuration ([ADR-017](decisions.md#adr-017-exposure-through-the-gateway-api)) |
 | **Observability stack** | Prometheus, Grafana, Zipkin and centralised logs |
 
 ## Boundaries between development, staging and production
@@ -94,7 +94,7 @@ The AWS credentials the pipeline uses are resolved through OIDC federation with 
 
 ## Domain, DNS and TLS
 
-Each environment resolves through a different host towards the same ALB, and the Ingress separates traffic by `Host` header.
+Each environment resolves through a different host towards the same ALB, and each environment's `HTTPRoute` claims its `Host` on the shared gateway.
 
 | Environment | Host |
 |---|---|
