@@ -46,6 +46,8 @@ in less space.
 | `terraform-ci` | `docket-infrastructure` | 2 | Gate table |
 | `module-ci` | `docket-terraform-modules` | 2 | Gate table |
 | `gitops-ci` | `docket-gitops` | 2 | Gate table |
+| `production-approval` | `docket-gitops` | 2 | Sequence 2 and gate table |
+| `production-sync-record` | `docket-gitops` | 2 | Sequence 2 |
 
 ## How the pipelines connect
 
@@ -248,6 +250,17 @@ exists, that the version came from the previous environment and the verify gate.
 the merge, a pin job tags every image staging and production declare
 `promoted-<environment>-<tag>`, which the registry lifecycle keeps.
 
+**Approval and sync are recorded by card 25 (ADR-016).** Branch protection is not
+available on the manifests repository, so the approval is not required but checked and
+audited. `production-approval` sets the commit status `production-approval` on the pull
+request, green once an approver who is neither the author nor the requester approves the
+commit being merged, and after the merge it audits the commit on `main`, reporting a change
+with no valid approval, or merged by someone who is not an approver, to the alerts channel.
+Argo CD announces every finished production sync, and the person who synced runs
+`production-sync-record`, which names them on every pull request the sync applied and sets
+the status `production-sync` on the revision. `gitops-ci` refuses a production Application
+that declares automated sync.
+
 Staging follows the same sequence without steps 6 and 7: it syncs on its own once the
 promotion merges. The first staging promotion moved four services from `sha-` tags to
 `1.0.0` this way; production is first promoted by card 27.
@@ -324,7 +337,12 @@ one blocks a merge.
 | `pr-conventions` | every pull request, all nine repositories | Conventional Commit title, branch name pattern, `AGENTS.md` drift against its canonical source | yes |
 | `terraform-ci` | pull requests touching Terraform | `fmt`, `validate`, `tflint`, Trivy config scan, Checkov, OPA policy against saved plans | yes |
 | `module-ci` | pull requests touching modules | account identifier and secret scan, `fmt`, `validate`, plan mode tests | yes |
-| `gitops-ci` | pull requests in `docket-gitops` touching the manifests | `kustomize build` of every environment, each moved image exists in ECR, the version came from the previous environment, the verify gate (ADR-014) | yes |
+| `gitops-ci` | pull requests in `docket-gitops` touching the manifests | `kustomize build` of every environment, each moved image exists in ECR, the version came from the previous environment, the verify gate (ADR-014), production keeps manual sync (ADR-016) | yes |
+
+`production-approval` is a fifth check that does not block. On every pull request touching
+a production path it reports whether a named approver approved the commit being merged, and
+it audits every merge; branch protection, which would make it blocking, is not available on
+the manifests repository (card 39, ADR-016).
 
 Gates run cheapest first, so a formatting error costs seconds. None of them holds cloud
 credentials.

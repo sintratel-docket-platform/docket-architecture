@@ -35,11 +35,11 @@ Each environment has two independent controls: one over the merge in the manifes
 |---|---|---|
 | `dev` | None additional | `automated`, syncs when the change is detected |
 | `staging` | Pull request with review | `automated`, syncs after the merge |
-| `prod` | Pull request with review and approval from a designated owner | **Manual**, someone triggers the sync after the merge |
+| `prod` | Pull request with an approval from a named approver, checked and audited ([ADR-016](decisions.md#adr-016-production-approval-without-branch-protection)) | **Manual**, an approver triggers the sync after the merge and records it |
 
 The distinction between the two controls matters in production. Approving and merging the pull request leaves the version declared in Git, and the change reaches the cluster only when a person runs the sync of the Argo CD `Application`. They are two separate, auditable acts.
 
-Designing the approval policies and naming the owners belongs to area 04. What is defined here is the boundary those policies must respect.
+The approval policy and its approvers live in the manifests repository, in `docs/production-change-policy.md`, next to the files and workflows that apply it. [ADR-016](decisions.md#adr-016-production-approval-without-branch-protection) records why approval there is checked, audited and reported rather than enforced. What is defined here is the boundary that policy respects.
 
 ## What differs between environments
 
@@ -57,7 +57,7 @@ decision, not an oversight, and says why.
 | Secrets | `/docket/dev/`, read by `docket-dev-eso` | `/docket/staging/` | `/docket/prod/` | Each environment can only name, and only read, its own prefix |
 | Host | `dev.docket.<domain>` | `staging.docket.<domain>` | `docket.<domain>`, not yet exposed | One wildcard certificate covers all three |
 | Load balancer | shared `docket-non-production` group | shared with `dev` | its own, card 26 | [ADR-015](decisions.md#adr-015-staging-shares-the-non-production-load-balancer) |
-| How a version arrives | the service pipeline writes it on merge | a promotion pull request, checked by `gitops-ci` | a promotion pull request with its designated approver | [ADR-013](decisions.md#adr-013-semantic-versioning-for-services-and-modules), [ADR-014](decisions.md#adr-014-promotion-between-environments) |
+| How a version arrives | the service pipeline writes it on merge | a promotion pull request, checked by `gitops-ci` | a promotion pull request approved by a named approver | [ADR-013](decisions.md#adr-013-semantic-versioning-for-services-and-modules), [ADR-014](decisions.md#adr-014-promotion-between-environments) |
 | Argo CD sync | automated, self-heal, prune | automated, self-heal, prune | **manual** | The merge declares production; a person applies it |
 | Images kept in the registry | the last ten | every declared image pinned `promoted-staging-*` | pinned `promoted-production-*` | An environment must never declare a pruned image |
 | Replicas, requests, limits, environment variables | from the base manifests | same | same | Staging rehearses production's configuration exactly |
