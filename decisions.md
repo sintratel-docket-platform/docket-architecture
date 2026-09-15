@@ -410,6 +410,56 @@ A promotion moves services, not environments: each service at its own version, s
 
 ---
 
+## ADR-016 Production approval without branch protection
+
+**Status:** Implemented.
+
+**Context.** `environments.md` sets the boundary for production: a change is declared by a pull request approved by a designated owner, and applied by a person's manual sync. Card 25 asks for the policy behind it, with named approvers, and for a flow that is demonstrable and auditable. Four facts shaped it. The manifests repository is private and the organisation is on GitHub's free plan, so branch protection, rulesets and required reviewers are unavailable (card 39) and anyone with write access can merge. Argo CD is reached with one shared account, so a sync names no person. Every document said "its designated approver" and named nobody. And five merged pull requests had already changed what production renders with no approval at all.
+
+**Decision.** Because approval cannot be enforced, it is checked before the merge, audited after it, and reported when broken. Every piece lives in the manifests repository except the sync notice.
+
+| Piece | Where | What it does |
+|---|---|---|
+| Approver list | A `production-policy` section at the end of the manifests repository's `CODEOWNERS` | The paths that change what production renders (its environment, its overlays, every base, its Argo CD `Application`) and the policy's own files, each with its approvers. The only list: narrowing it is editing those lines |
+| Approval status | `production-approval`, on every pull request and review | The commit status `production-approval` on the head commit. Valid: the latest review of an approver who is neither the author nor the person who requested the promotion, on the commit being merged, not withdrawn. Rules are read from `main` |
+| Audit | The same workflow, on every push to `main`, on demand, and on a retrospective approval | A production change with no pull request, no valid approval, or merged by someone who is not an approver is a violation: failure status on the commit, a comment on the pull request, a message to the alerts channel |
+| Sync notice | Argo CD notifications, `platform` stack | Once per finished production sync, with the revision and the time |
+| Sync record | `production-sync-record`, run by the person who synced | Comments on every pull request the sync applied since the last record, and sets the commit status `production-sync` on the revision. A sync by someone who is not an approver is recorded as a failure and reported |
+| Manual sync guard | `gitops-ci` | Refuses a production `Application` that declares automated sync |
+
+One approval is enough. Today the approvers are the four team members; the policy document in the manifests repository names them and gives the steps to narrow the list. The same list decides who may merge and who may sync.
+
+An emergency change, labelled as one, may merge without a prior approval. Its audit reports the violation; a comment starting `Retrospective approval:` by another approver within one working day runs the audit again and clears it.
+
+**Consequences.**
+- Every production change carries a recorded verdict on its merge commit. The first real audit reported the pull request that introduced the audit, merged without an approval.
+- Nothing blocks a merge. A violation reaches the cluster only when someone syncs, and the alert reaches the team first.
+- The verdict is a commit status, not a job result: GitHub keeps one check per triggering event, so a job that failed when a pull request opened would stay red beside the green one from its approval.
+- A change cannot approve itself by editing the list or the script, because both are read from `main` before the merge and from the parent commit after it. The workflow file itself comes from the pull request, so a change that weakens the audit is audited by its own version; auditing the commit again from `main` catches it.
+- Who synced depends on a person running the record. The Argo CD notice makes an unrecorded sync visible. Per-person access to Argo CD is card 19.
+- The requester of a promotion is a marker in the pull request body, which can be edited.
+- Narrowing the list narrows approving, merging and syncing, not repository permissions.
+- The retrospective approval is a comment because GitHub documents no way to approve a pull request after it merges. A working day skips weekends; public holidays count.
+- A reviewer whose access came only through a team could not approve, and was given direct access; one team member's approval is still refused on the private repository with an error about explicit access, unresolved.
+
+**Rejected alternatives.**
+
+*A paid plan with branch protection.* It would enforce reviews and code owners, at a recurring cost the project does not carry. The `CODEOWNERS` section is written so GitHub would enforce it as it stands if that changes.
+
+*Making the manifests repository public to get protection.* Its manifests carry the registry address, which includes the account identifier.
+
+*A separate approvers file.* Two lists to keep in step, and not the one GitHub reads.
+
+*A team as the approver.* The workflow token cannot read team membership, so a team would count as nobody.
+
+*A bot that reverts an unapproved merge.* An automated write to production's declared state with no person deciding, and one that would fight an emergency fix.
+
+*Auditing only after the merge.* Nothing would be visible while the pull request is open.
+
+*Argo CD's GitHub notifier writing the sync status.* A GitHub credential inside the cluster, and the status would still name the shared account.
+
+---
+
 ## Open assumptions
 
 Statements this design takes as true and worth resolving before or during the Terraform work.
