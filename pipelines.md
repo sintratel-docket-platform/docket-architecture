@@ -253,8 +253,9 @@ the merge, a pin job tags every image staging and production declare
 **Approval and sync are recorded by card 25 (ADR-016).** Branch protection is not
 available on the manifests repository, so the approval is not required but checked and
 audited. `production-approval` sets the commit status `production-approval` on the pull
-request, green once an approver who is neither the author nor the requester approves the
-commit being merged, and after the merge it audits the commit on `main`, reporting a change
+request, green once an approver who is not the author approves the commit being merged,
+and not the requester either unless the policy's independent-approval parameter says so
+(ADR-020), and after the merge it audits the commit on `main`, reporting a change
 with no valid approval, or merged by someone who is not an approver, to the alerts channel.
 Argo CD announces every finished production sync, and the person who synced runs
 `production-sync-record`, which names them on every pull request the sync applied and sets

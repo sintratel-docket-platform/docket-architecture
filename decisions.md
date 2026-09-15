@@ -414,7 +414,7 @@ A promotion moves services, not environments: each service at its own version, s
 
 ## ADR-016 Production approval without branch protection
 
-**Status:** Implemented.
+**Status:** Implemented. The approval rule is amended by [ADR-020](#adr-020-independent-approval-as-a-policy-parameter).
 
 **Context.** `environments.md` sets the boundary for production: a change is declared by a pull request approved by a designated owner, and applied by a person's manual sync. Card 25 asks for the policy behind it, with named approvers, and for a flow that is demonstrable and auditable. Four facts shaped it. The manifests repository is private and the organisation is on GitHub's free plan, so branch protection, rulesets and required reviewers are unavailable (card 39) and anyone with write access can merge. Argo CD is reached with one shared account, so a sync names no person. Every document said "its designated approver" and named nobody. And five merged pull requests had already changed what production renders with no approval at all.
 
@@ -584,6 +584,43 @@ The production Application keeps its manual sync policy. The restore re-applies 
 *Granting the promotion workflow read access to the service repositories.* A permission change on an organisation App for information the existing deployment write already carries.
 
 *Links only in the production pull request.* Consolidates nothing a reviewer can read in place.
+
+---
+
+## ADR-020 Independent approval as a policy parameter
+
+**Status:** Implemented. Amends the approval rule of [ADR-016](#adr-016-production-approval-without-branch-protection).
+
+**Context.** ADR-016 counts an approval of a production change only from a named approver who is neither the pull request's author nor the person who requested the promotion. Card 27 runs the first release to production while one team member is available and the other approvers are not, so under that rule every release would be a recorded violation, and a policy violated on every use tells an auditor nothing. GitHub already refuses a review from a pull request's author. Promotions are opened by the manifests repository's App, so the person who requests one is not its author and GitHub lets them review it. The team lead decided that, for now, the requester may approve, and asked for the stricter rule to stay one documented change away.
+
+**Decision.** Independence becomes a parameter of the policy, in the same place as the approvers.
+
+| Piece | Where | What it does |
+|---|---|---|
+| The parameter | A line `independent-approval=<value>` inside the `production-policy` section of the manifests repository's `CODEOWNERS` | `required`: the approver is neither the author nor the requester, ADR-016's rule. `not-required`: the approver is not the author. Set to `not-required` |
+| Default | The approval rules | Without the line, `required`. A different value, the line twice, or the line outside the section fails the check instead of being guessed |
+| Mode in force | The approval check and the audit | Read, like the approvers, from `main` before the merge and from the parent commit after it. Rules older than the parameter are applied as written, which required independence |
+| Emergency path | The retrospective approval | `required`: an approver who is not the author, the requester or the merger. `not-required`: an approver who is not the author |
+| Visibility | The `production-approval` status and the audit comment | An approval that counted only because of the mode is `success`, and names the requester or merger it came from |
+
+Every named approver stays an approver, and the merge must still be made by one. The policy document in the manifests repository says why the value is `not-required`, how to set it to `required`, and when the team should.
+
+**Consequences.**
+- One person can request, approve, merge and sync a production promotion. Each such approval is named where it is recorded, so non-independent approvals can be told from independent ones and from violations.
+- Requiring an independent approver again is one line in a pull request. That pull request is a production change judged with the value still on `main`, so it cannot relax its own check, and a change that sets `not-required` cannot either.
+- The author is excluded in both modes. A pull request written by a person still needs another approver, and an emergency change cannot be written, merged and approved by one person.
+- A copy of the section without the line is strict, not permissive.
+- Separation of duties is not evidenced while the value is `not-required`; the policy's known limits say so.
+
+**Rejected alternatives.**
+
+*A repository variable.* Changing it leaves no pull request, no approval and no line in the history, the opposite of what ADR-016 guarantees for the approver list.
+
+*No parameter, recording every release as a violation.* The audit would report the normal path as broken, and a real violation would look like every other release.
+
+*Removing every exclusion, the author included.* GitHub would still refuse the review, and the retrospective comment would let one person write, merge and clear an emergency change.
+
+*Default `not-required` when the line is missing.* Forgetting the line would silently relax the policy.
 
 ---
 
