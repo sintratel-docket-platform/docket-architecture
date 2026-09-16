@@ -18,7 +18,8 @@ The reference architecture and the decisions behind it.
 | [`aws-infrastructure.md`](aws-infrastructure.md) | Network, EKS, registry, state backend, identity, secrets, budget | 02, 08, 09 |
 | [`pipelines.md`](pipelines.md) | The ten pipelines, how they connect, the test pyramid, six sequence diagrams and the gate table | 04, 05, 06, 09 |
 | [`testing-strategy.md`](testing-strategy.md) | The three test levels, where and when each runs, what makes it pass, current counts per service | 05, 09 |
-| [`decisions.md`](decisions.md) | Eleven ADRs with context, consequences and rejected alternatives | 09 |
+| [`decisions.md`](decisions.md) | 22 ADRs with context, consequences and rejected alternatives | 09 |
+| [`project-retrospective.md`](project-retrospective.md) | The ADRs grouped by theme, current limitations consolidated from four repositories, and a ranked list of future improvements | 09 |
 
 ### `docket-architecture/standards` — the engineering standards, here
 
