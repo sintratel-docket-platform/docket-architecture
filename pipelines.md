@@ -95,16 +95,16 @@ Coverage is produced at the unit level and consumed by SonarQube. Integration an
 end produce pass or fail plus traces, and their result is what the promotion gate reads.
 
 **Current state, 16 September 2026.** All five services carry a suite and `service-ci` runs
-it on every change. 135 tests, 90 at level 1 and 45 at level 2. Line coverage is reported
+it on every change. 147 tests, 96 at level 1 and 51 at level 2. Line coverage is reported
 per pull request by each service's own CI and not summarised here, to avoid a number that
 goes stale the moment it is written; card 11 (SonarQube) is where it will be consumed.
 
 | Service | L1 | L2 |
 |---|---|---|
-| `auth-api` | 19 | 13 |
-| `users-api` | 12 | 9 |
-| `todos-api` | 14 | 9 |
-| `log-message-processor` | 8 | 7 |
+| `auth-api` | 19 | 14 |
+| `users-api` | 13 | 11 |
+| `todos-api` | 14 | 12 |
+| `log-message-processor` | 13 | 7 |
 | `frontend` | 37 | 7 |
 
 Level 3 exists (`docket-gitops/e2e`, six scenarios) and, since card 17, runs automatically

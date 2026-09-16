@@ -40,13 +40,13 @@ Verified 16 September 2026.
 
 | Service | L1 tests | L2 tests |
 |---|---|---|
-| `auth-api` | 19 | 13 |
-| `users-api` | 12 | 9 |
-| `todos-api` | 14 | 9 |
-| `log-message-processor` | 8 | 7 |
+| `auth-api` | 19 | 14 |
+| `users-api` | 13 | 11 |
+| `todos-api` | 14 | 12 |
+| `log-message-processor` | 13 | 7 |
 | `frontend` | 37 | 7 |
 
-135 tests across L1 and L2, all five services. Line coverage is reported per pull request by each service's own CI, not summarised here since a fixed number goes stale the moment it is written. The rule that currently defines "sufficient" coverage is [`AGENTS.md`](AGENTS.md) section 9.4's ratchet. Coverage on new code must not fall below the service's existing overall coverage. A fixed numeric floor per service is card 11's job, SonarQube, still in progress.
+147 tests across L1 and L2, all five services. Line coverage is reported per pull request by each service's own CI, not summarised here since a fixed number goes stale the moment it is written. The rule that currently defines "sufficient" coverage is [`AGENTS.md`](AGENTS.md) section 9.4's ratchet. Coverage on new code must not fall below the service's existing overall coverage. A fixed numeric floor per service is card 11's job, SonarQube, still in progress.
 
 L3 covers six scenarios in `docket-gitops/e2e`. Three are tagged smoke and run on every development to staging promotion; all six run on every staging to production promotion.
 
