@@ -43,6 +43,7 @@ Statuses: **Accepted** · **Assumption** (taken in the absence of guidance to th
 | [020](#adr-020-independent-approval-as-a-policy-parameter) | Independent approval as a policy parameter | Implemented |
 | [021](#adr-021-security-controls-applied-and-the-ones-deferred-on-record) | Security controls applied, and the ones deferred on record | Implemented |
 | [022](#adr-022-level-2-and-3-gates-run-inside-the-promotion-pipeline-not-reactively) | Level 2 and 3 gates run inside the promotion pipeline, not reactively | Implemented |
+| [023](#adr-023-observability-cloudwatch-container-insights) | Observability: CloudWatch Container Insights | Accepted |
 
 ---
 
@@ -705,6 +706,44 @@ Credentials for the suite — three pairs, one per source environment level 3 ga
 *Re-checking level 1 and level 2 from `docket-gitops` for each promotion.* Would need read access into five more private repositories for a fact the job graph already guarantees — a version cannot exist in `docket-gitops` without having passed `test` for that exact commit.
 
 *Passing suite credentials through a step output.* An output is visible from a workflow run's API in cleartext, independent of the masking applied to logs; reading secrets straight into an `env:` block at the point of use avoids that entirely.
+
+---
+
+## ADR-023 Observability: CloudWatch Container Insights
+
+**Status:** Accepted.
+
+**Context.** Card 20 asks for the minimum operational observability the platform needs: health signals, queryable logs, a minimum metric set, visibility of application and deployment state, and the configuration documented. Health is already delivered: every HTTP service answers `GET /health` and the log processor exposes a heartbeat file an exec probe reads. What remains is logs a person can query, a minimum metric set, and a documented answer for where deployment state is visible — against a cluster that is [ADR-003](#adr-003-one-shared-cluster-with-three-namespaces)'s three full environments on [ADR-004](#adr-004-compute-amazon-eks)'s two-node group, each namespace bound by the resource quota in [`environments.md`](environments.md#what-differs-between-environments), operated under [ADR-010](#adr-010-ephemeral-infrastructure-with-split-state)'s routine destroy and apply.
+
+**Decision.** Use AWS-native tooling for the minimum operational platform instead of a self-hosted metrics and logging stack.
+
+| Responsibility | Tool | Role |
+|---|---|---|
+| Health | Kubernetes readiness and liveness probes, HTTP `/health` endpoints, the log processor's heartbeat exec probe | Already delivered; unchanged by this decision |
+| Metrics | Amazon CloudWatch Container Insights, through the CloudWatch Observability EKS add-on | Kubernetes/EKS operational metrics: pod and node CPU and memory, restart counts, desired versus available replicas |
+| Metrics, immediate | `metrics-server` | Already installed; keeps `kubectl top` usable for a check with no dashboard |
+| Logs | The same CloudWatch Observability EKS add-on | Container `stdout`/`stderr`, centralised and queryable in CloudWatch Logs |
+| Deployment state | Argo CD | Sync and health status per environment; already the source of truth for what is declared versus deployed |
+| Tracing | Existing Zipkin instrumentation | Left in place, unwired; deploying a tracing backend is deferred |
+| Alerts | — | Out of scope of this decision; card 21 |
+
+CloudWatch Container Insights is enabled through the `amazon-cloudwatch-observability` Amazon EKS add-on, the same add-on mechanism already used for `vpc-cni`, `coredns`, `kube-proxy` and `eks-pod-identity-agent`, with `otelContainerInsights.enabled = true` so metrics are collected through the OpenTelemetry-based path AWS currently recommends over the classic CloudWatch Agent pipeline. Container log collection lands in CloudWatch Logs, with the main container-log group named `/aws/containerinsights/<cluster-name>/application`. The add-on's other capability, Application Signals, stays disabled: card 20 asks for logs, metrics, health and visibility, not application-level tracing telemetry, so it is not part of this decision and is not auto-enabled by the implementation.
+
+The add-on's workloads authenticate through **EKS Pod Identity** rather than the IRSA pattern the rest of the cluster's controllers use: it is AWS's currently recommended option for this specific add-on, the cluster already runs the `eks-pod-identity-agent` add-on unused, and it associates the role directly with the add-on's `cloudwatch-agent` service account in its own `amazon-cloudwatch` namespace without widening the node's own IAM role. The permissions attached are AWS's documented `CloudWatchAgentServerPolicy`, used initially because it is the attachment AWS's own installation path expects; narrowing it to a project-scoped policy is left for the Terraform implementation to evaluate, not decided here. Retention on the resulting log groups is a cost-control setting owned by Terraform, set during implementation and not fixed by this ADR.
+
+**Consequences.**
+- Card 20's remaining acceptance criteria — logs queryable, a minimum metric set defined, deployment state visible, configuration documented — are covered without adding a stateful workload to the cluster.
+- The observability agents run as pods inside the ephemeral cluster and are rebuilt with it, but the data they produce is AWS-managed and lives outside the cluster's lifecycle: CloudWatch metrics and logs outlive a destroy and apply cycle for as long as the configured retention keeps them, unlike in-cluster state such as a time-series database would be. Retention is a cost lever and is set during implementation, not decided here.
+- Argo CD remains the single place that answers what is deployed and whether it is healthy, so this decision does not introduce a second, competing source of deployment state.
+- The Zipkin instrumentation already present in the services (`tracing.go`, `ZIPKIN_URL`, the Frontend's `/zipkin` proxy) is preserved as is; no service loses tracing capability, and wiring a backend remains available as later work if a future card asks for it.
+- `logical-architecture.md` and `environments.md` described the target as "Prometheus, Grafana, Zipkin and centralised logs"; both are updated alongside this ADR so the documentation does not describe an abandoned target as current.
+- Operational alerts are explicitly not part of this decision. Card 21 defines them against the metrics and logs this ADR makes available.
+
+**Rejected alternatives.**
+
+*Prometheus, Grafana and Loki, self-hosted in the cluster.* Not rejected as tooling — they remain a reasonable choice for a project without this one's constraints. Deferred here because the runtime and operational footprint they add is unnecessary for card 20's minimum acceptance criteria, given: the cluster is shared by three full environments on two worker nodes ([ADR-003](#adr-003-one-shared-cluster-with-three-namespaces), [ADR-004](#adr-004-compute-amazon-eks)); each namespace's resource quota already leaves little headroom beyond the application itself ([`environments.md`](environments.md#what-differs-between-environments)); the cluster's ephemeral lifecycle means an in-cluster time-series database loses its history on every destroy ([ADR-010](#adr-010-ephemeral-infrastructure-with-split-state)); and the project's credit-limited budget does not have room for the added compute or the engineering time a self-hosted stack's upkeep would take. If a later phase needs dashboards or retention CloudWatch cannot offer at a reasonable cost, this decision can be revisited without undoing anything recorded here.
+
+*Deploying a tracing backend for the existing Zipkin instrumentation now.* Card 20 asks for logs, metrics, health and visibility, not tracing. Wiring `ZIPKIN_URL` to a real backend is left for a card that asks for it.
 
 ---
 
