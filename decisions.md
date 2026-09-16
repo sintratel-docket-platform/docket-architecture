@@ -708,6 +708,42 @@ Credentials for the suite — three pairs, one per source environment level 3 ga
 
 ---
 
+## ADR-023 Observability: CloudWatch Container Insights and Fluent Bit
+
+**Status:** Accepted.
+
+**Context.** Card 20 asks for the minimum operational observability the platform needs: health signals, queryable logs, a minimum metric set, visibility of application and deployment state, and the configuration documented. Health is already delivered: every HTTP service answers `GET /health` and the log processor exposes a heartbeat file an exec probe reads. What remains is logs a person can query, a minimum metric set, and a documented answer for where deployment state is visible — against a cluster that is [ADR-003](#adr-003-one-shared-cluster-with-three-namespaces)'s three full environments on [ADR-004](#adr-004-compute-amazon-eks)'s two-node group, each namespace bound by the resource quota in [`environments.md`](environments.md#what-differs-between-environments), operated under [ADR-010](#adr-010-ephemeral-infrastructure-with-split-state)'s routine destroy and apply.
+
+**Decision.** Use AWS-native tooling for the minimum operational platform instead of a self-hosted metrics and logging stack.
+
+| Responsibility | Tool | Role |
+|---|---|---|
+| Health | Kubernetes readiness and liveness probes, HTTP `/health` endpoints, the log processor's heartbeat exec probe | Already delivered; unchanged by this decision |
+| Metrics | Amazon CloudWatch Container Insights | Kubernetes/EKS operational metrics: pod and node CPU and memory, restart counts, desired versus available replicas |
+| Metrics, immediate | `metrics-server` | Already installed; keeps `kubectl top` usable for a check with no dashboard |
+| Logs | Fluent Bit, shipping to CloudWatch Logs | Centralised, queryable container `stdout`/`stderr` |
+| Deployment state | Argo CD | Sync and health status per environment; already the source of truth for what is declared versus deployed |
+| Tracing | Existing Zipkin instrumentation | Left in place, unwired; deploying a tracing backend is deferred |
+| Alerts | — | Out of scope of this decision; card 21 |
+
+Both the CloudWatch Agent and Fluent Bit are installed through the `amazon-cloudwatch-observability` Amazon EKS add-on, the same add-on mechanism already used for `vpc-cni`, `coredns`, `kube-proxy` and `eks-pod-identity-agent`. The agent receives least-privilege AWS permissions through the cluster's existing IRSA-based identity pattern, the same one already used for External Secrets Operator and the other controllers; the exact role and policy are resolved when the Terraform is written, not here.
+
+**Consequences.**
+- Card 20's remaining acceptance criteria — logs queryable, a minimum metric set defined, deployment state visible, configuration documented — are covered without adding a stateful workload to the cluster.
+- The observability agents run as pods inside the ephemeral cluster and are rebuilt with it, but the data they produce is AWS-managed and lives outside the cluster's lifecycle: CloudWatch metrics and logs outlive a destroy and apply cycle for as long as the configured retention keeps them, unlike in-cluster state such as a time-series database would be. Retention is a cost lever and is set during implementation, not decided here.
+- Argo CD remains the single place that answers what is deployed and whether it is healthy, so this decision does not introduce a second, competing source of deployment state.
+- The Zipkin instrumentation already present in the services (`tracing.go`, `ZIPKIN_URL`, the Frontend's `/zipkin` proxy) is preserved as is; no service loses tracing capability, and wiring a backend remains available as later work if a future card asks for it.
+- `logical-architecture.md` and `environments.md` described the target as "Prometheus, Grafana, Zipkin and centralised logs"; both are updated alongside this ADR so the documentation does not describe an abandoned target as current.
+- Operational alerts are explicitly not part of this decision. Card 21 defines them against the metrics and logs this ADR makes available.
+
+**Rejected alternatives.**
+
+*Prometheus, Grafana and Loki, self-hosted in the cluster.* Not rejected as tooling — they remain a reasonable choice for a project without this one's constraints. Deferred here because the runtime and operational footprint they add is unnecessary for card 20's minimum acceptance criteria, given: the cluster is shared by three full environments on two worker nodes ([ADR-003](#adr-003-one-shared-cluster-with-three-namespaces), [ADR-004](#adr-004-compute-amazon-eks)); each namespace's resource quota already leaves little headroom beyond the application itself ([`environments.md`](environments.md#what-differs-between-environments)); the cluster's ephemeral lifecycle means an in-cluster time-series database loses its history on every destroy ([ADR-010](#adr-010-ephemeral-infrastructure-with-split-state)); and the project's credit-limited budget does not have room for the added compute or the engineering time a self-hosted stack's upkeep would take. If a later phase needs dashboards or retention CloudWatch cannot offer at a reasonable cost, this decision can be revisited without undoing anything recorded here.
+
+*Deploying a tracing backend for the existing Zipkin instrumentation now.* Card 20 asks for logs, metrics, health and visibility, not tracing. Wiring `ZIPKIN_URL` to a real backend is left for a card that asks for it.
+
+---
+
 ## Open assumptions
 
 Statements this design takes as true and worth resolving before or during the Terraform work.
