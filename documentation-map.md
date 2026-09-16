@@ -17,6 +17,7 @@ The reference architecture and the decisions behind it.
 | [`environments.md`](environments.md) | Namespaces, boundaries between environments, GitOps flow, secrets, DNS | 02, 04 |
 | [`aws-infrastructure.md`](aws-infrastructure.md) | Network, EKS, registry, state backend, identity, secrets, budget | 02, 08, 09 |
 | [`pipelines.md`](pipelines.md) | The ten pipelines, how they connect, the test pyramid, six sequence diagrams and the gate table | 04, 05, 06, 09 |
+| [`testing-strategy.md`](testing-strategy.md) | The three test levels, where and when each runs, what makes it pass, current counts per service | 05, 09 |
 | [`decisions.md`](decisions.md) | Eleven ADRs with context, consequences and rejected alternatives | 09 |
 
 ### `docket-architecture/standards` — the engineering standards, here
@@ -95,7 +96,7 @@ The canonical source every repository distributes from.
 | 02 | Infrastructure as code | `docket-infrastructure` in full, `aws-infrastructure.md` |
 | 03 | Design patterns | `logical-architecture.md`. **Largely undocumented; open work** |
 | 04 | Continuous integration and deployment | `environments.md`, `docket-gitops`, the CI workflows |
-| 05 | Testing strategy | `AGENTS.md` §9. **No test suites yet beyond two Terraform modules** |
+| 05 | Testing strategy | [`testing-strategy.md`](testing-strategy.md), `AGENTS.md` §9. All five services carry L1 and L2, `docket-gitops/e2e` carries L3, both gate promotion since card 17 |
 | 06 | Change management and release notes | **Not started** |
 | 07 | Observability and monitoring | `logical-architecture.md`, target only. **Not deployed** |
 | 08 | Security | `AGENTS.md` §7.10 and §10, `policy/docket.rego`, `decisions.md` ADR-002, 006, 011, 021; the per-identity record and the residual risk register live in the private infrastructure repository |
