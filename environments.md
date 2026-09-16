@@ -17,13 +17,15 @@ Alongside the application, running inside the cluster:
 | **Argo CD** | Synchronises the three namespaces against the manifest repository |
 | **External Secrets Operator** | Materialises the parameters it reads from SSM Parameter Store as Kubernetes `Secret` objects, per namespace |
 | **AWS Load Balancer Controller** | Translates a `Gateway` and its `HTTPRoute`s into ALB configuration ([ADR-017](decisions.md#adr-017-exposure-through-the-gateway-api)) |
-| **Observability stack** | Prometheus, Grafana, Zipkin and centralised logs |
+| **Health endpoints and probes** | Every service answers an unauthenticated `GET /health`, except the worker, which refreshes a heartbeat file. The Kubernetes probes read both, so a version that starts without serving never becomes `Ready` ([card 20](project-retrospective.md#current-limitations), first phase) |
+
+Prometheus, Grafana and centralised logs are not deployed. They are the rest of card 20 and card 21.
 
 ## Boundaries between development, staging and production
 
 **What separates them.** Isolation is logical. Each namespace has its own RBAC, its own resource quotas and its own secret prefix in Parameter Store (`/docket/<environment>/...`), reachable only by its IRSA role. Sharing a cluster means there is no node or control plane isolation, so an incident in the cluster reaches all three environments at once, production included.
 
-**What they share.** The cluster, the nodes, the registry, the ALB, the Argo CD instance and the DNS zone. What changes between environments is the image version declared in the manifests, and the origin of that image is always the same registry.
+**What they share.** The cluster, the nodes, the registry, the Argo CD instance and the DNS zone. `dev` and `staging` also share the `docket-non-production` gateway and its load balancer; production has its own, and its gateway admits routes from no other namespace ([ADR-018](decisions.md#adr-018-productions-argo-cd-project-gateway-and-restore-on-start)). What changes between environments is the image version declared in the manifests, and the origin of that image is always the same registry.
 
 **What connects them.** Only promotion, and always in one direction: `dev` to `staging` to `prod`. There is no traffic between namespaces and no access from one environment to another's data.
 

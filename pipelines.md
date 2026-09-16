@@ -41,7 +41,7 @@ in less space.
 | `service-ci` | the five service repositories | 8 | Sequence 1 |
 | promotion | `docket-gitops` | 5 | Sequence 2 |
 | `infrastructure` | `docket-infrastructure` | 6 | Sequence 3 |
-| `release` and Renovate | `docket-terraform-modules` | 6, crosses repositories | Sequence 4 |
+| `release` | `docket-terraform-modules` | 6, crosses repositories | Sequence 4 |
 | `verify` | `docket-gitops`, inside `promote.yml` | 1 (one job in one runner) | Sequence 5, as a table |
 | rollback | `docket-gitops` | 5 | Sequence 6 |
 | `pr-conventions` | all nine | 2 | Gate table |
@@ -62,9 +62,11 @@ analysis and needs no cloud identity. The one workflow that can destroy the clus
 therefore manual and sits behind a single OIDC role.
 
 **A version joins the two Terraform repositories.** `docket-terraform-modules` cuts a tag
-when someone merges the release pull request release-please keeps open, Renovate opens a
-bump pull request, and live state changes on apply. Each step is an explicit decision, so
-a module change reaches production only when someone chooses it.
+when someone merges the release pull request release-please keeps open, a pull request in
+`docket-infrastructure` moves the pinned `?ref=`, and live state changes on apply. Each
+step is an explicit decision, so a module change reaches production only when someone
+chooses it. Renovate was meant to open that bump pull request and never has, so today a
+person opens it ([card 52](project-retrospective.md#current-limitations)).
 
 **`docket-gitops` sits between code and cluster.** No pipeline holds `kubectl`
 credentials. Every deployment happens because Argo CD read a commit.
@@ -310,6 +312,14 @@ skipping`.
 It also shows why the exposure scan runs first in `module-ci`. The module repository is
 public and so is its Git history, so clearing an account identifier committed by mistake
 requires rewriting history.
+
+**What the diagram does not show is an automated bump.** ADR-012 and ADR-013 both describe
+Renovate opening the pull request that moves a stack's pinned `?ref=`. Renovate is
+installed organisation wide and has never opened one; every bump in
+`docket-infrastructure` so far was opened by a person. Card 52 holds the investigation.
+The gates that run on that pull request are the same either way, so the control the
+diagram describes is intact; what is missing is the automation that would notice a release
+exists.
 
 ## Sequence 5. Verifying a version before it is promoted
 

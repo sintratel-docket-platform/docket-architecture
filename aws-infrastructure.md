@@ -26,13 +26,15 @@ Estimated cost of this architecture running continuously for 2 weeks (336 h) in 
 | EKS control plane | 0.10 USD/h | 33.60 |
 | 2 nodes | see [Compute](#compute) | 27.95 – 64.40 |
 | NAT Gateway | 0.045 USD/h plus processed traffic | 15.12 |
-| Application Load Balancer | 0.0225 USD/h plus LCU | ~7.60 |
-| Public IPv4 (2 for the ALB, 1 for the NAT) | 0.005 USD/h each | 5.04 |
+| 2 Application Load Balancers | 0.0225 USD/h each plus LCU | ~15.20 |
+| Public IPv4 (2 per load balancer, 1 for the NAT) | 0.005 USD/h each | 8.40 |
 | Node EBS (2 gp3 volumes of 20 GB) | 0.08 USD/GB-month | ~1.50 |
 | S3, ECR, Route 53, Parameter Store | | ~1.50 |
-| **Total, 2 weeks 24/7** | | **~92 – 128** |
+| **Total, 2 weeks 24/7** | | **~103 – 139** |
 
-**Operational implication.** With 100 USD the margin over the estimate is thin to negative. Completing the 5 activities to reach 200 USD is a practical prerequisite before applying this architecture. The RDS or Aurora instance one of the activities asks for must be deleted as soon as it is completed, because it is the only resource in that set capable of consuming credits steadily if left running.
+The second load balancer arrived with [ADR-018](decisions.md#adr-018-productions-argo-cd-project-gateway-and-restore-on-start), which gave production its own gateway so no other namespace can attach a route to it. It costs about 11 USD over the two weeks, and that is the price of the isolation.
+
+**Operational implication.** With 100 USD the estimate is already over budget. Completing the 5 activities to reach 200 USD is a practical prerequisite before applying this architecture. The RDS or Aurora instance one of the activities asks for must be deleted as soon as it is completed, because it is the only resource in that set capable of consuming credits steadily if left running.
 
 **The saving lever.** The design is meant to be destroyed and recreated ([ADR-010](decisions.md#adr-010-ephemeral-infrastructure-with-split-state)). Shutting down outside working hours cuts the cost to less than half, and covers the FinOps stretch goal in the brief.
 
@@ -42,12 +44,12 @@ EKS requires subnets in at least two availability zones, so the VPC is deployed 
 
 | Subnet | CIDR | AZ | Contents | Route table |
 |---|---|---|---|---|
-| Public A | `10.0.0.0/24` | `us-east-1a` | ALB, NAT Gateway | `0.0.0.0/0` to the Internet Gateway |
-| Public B | `10.0.1.0/24` | `us-east-1b` | ALB ENI | `0.0.0.0/0` to the Internet Gateway |
+| Public A | `10.0.0.0/24` | `us-east-1a` | Both load balancers, NAT Gateway | `0.0.0.0/0` to the Internet Gateway |
+| Public B | `10.0.1.0/24` | `us-east-1b` | Network interfaces of both load balancers | `0.0.0.0/0` to the Internet Gateway |
 | Private A | `10.0.10.0/24` | `us-east-1a` | Cluster node | `0.0.0.0/0` to the NAT Gateway |
 | Private B | `10.0.11.0/24` | `us-east-1b` | Cluster node | `0.0.0.0/0` to the NAT Gateway |
 
-The nodes live in private subnets, with no public IP and unreachable from the internet. Their egress traffic, which includes image pulls and calls to the AWS API, goes through the NAT Gateway. The only exposed component is the ALB.
+The nodes live in private subnets, with no public IP and unreachable from the internet. Their egress traffic, which includes image pulls and calls to the AWS API, goes through the NAT Gateway. The only exposed components are the two load balancers.
 
 **A single NAT Gateway** is deployed, in public subnet A, shared by both zones. The reference topology uses one per zone, and duplicating the component would add 15 USD over the project window. The consequence of that concession: if `us-east-1a` becomes unavailable, the nodes in `us-east-1b` lose their internet egress. See [ADR-005](decisions.md#adr-005-multi-az-network-with-a-single-nat-gateway).
 
@@ -68,7 +70,7 @@ That is where the `sg-nodes` rule comes from: the port to open is the container 
 
 Amazon EKS with a managed node group of 2 nodes, one per availability zone, in the private subnets.
 
-**Sizing.** The cluster holds three namespaces with the complete application, that is 5 services plus Redis in each, totalling 18 application pods. On top of that come Argo CD, External Secrets Operator, the AWS Load Balancer Controller and the observability stack. The constraint deciding the instance size is the pods-per-node limit the EKS CNI imposes based on available ENIs.
+**Sizing.** The cluster holds three namespaces with the complete application, that is 5 services plus Redis in each, totalling 18 application pods. On top of that come Argo CD, External Secrets Operator, the AWS Load Balancer Controller, external-dns, the EBS CSI driver and metrics-server. No metrics or logging stack is deployed; that is the rest of card 20 and card 21. The constraint deciding the instance size is the pods-per-node limit the EKS CNI imposes based on available ENIs.
 
 **A second constraint decides it in practice.** The account is on the AWS free plan, which only allows launching instance types eligible for the free tier. A type outside that list makes `RunInstances` fail in a loop with no `health.issue` reported: the symptom is an indefinite `Still creating...` and the error appears only in CloudTrail.
 
@@ -164,7 +166,7 @@ This flow runs in parallel with the application deployment. Argo CD synchronises
 
 ## Domain, DNS and TLS
 
-Route 53 hosts the zone of the domain purchased by the team. Each environment resolves through a different host towards the same ALB, using **ALIAS** records, and each environment's `HTTPRoute` claims its `Host` on the shared gateway.
+Route 53 hosts the zone of the domain purchased by the team. Each environment resolves through a different host, using **ALIAS** records. `dev` and `staging` point at the load balancer of the `docket-non-production` gateway; `prod` points at its own, from the `docket-production` gateway. Each environment's `HTTPRoute` claims its `Host` on the gateway it is allowed to attach to.
 
 | Environment | Host |
 |---|---|
@@ -174,9 +176,9 @@ Route 53 hosts the zone of the domain purchased by the team. Each environment re
 
 The TLS certificate is issued by **AWS Certificate Manager**, validated by DNS against the same Route 53 zone, and terminates at the ALB. ACM issues public certificates at no cost and renews them automatically while the validation record exists in the zone. See [ADR-008](decisions.md#adr-008-dns-in-route-53-and-tls-with-acm).
 
-**Encryption scope.** Traffic travels encrypted between the user and the ALB. From the ALB to the pod it flows as plain HTTP inside the VPC. If area 08 requires end-to-end encryption, re-encryption towards the target group has to be enabled, which this design does not yet contemplate.
+**Encryption scope.** Traffic travels encrypted between the user and the load balancer. From there to the pod it flows as plain HTTP inside the VPC. If area 08 requires end-to-end encryption, re-encryption towards the target group has to be enabled, which this design does not yet contemplate.
 
-The ALB is recreated on every cluster cycle and changes DNS name. That is why the records are managed by `external-dns` from inside the cluster rather than by Terraform: records managed by Terraform would force a re-apply after every start-up.
+Both load balancers are recreated on every cluster cycle and change DNS name. That is why the records are managed by `external-dns` from inside the cluster rather than by Terraform: records managed by Terraform would force a re-apply after every start-up.
 
 One manual step remains, executed once: delegating the domain nameservers at the registrar to the four Route 53 assigns to the zone.
 
@@ -184,7 +186,7 @@ One manual step remains, executed once: delegating the domain nameservers at the
 
 The `destroy` and `apply` cycle has a mandatory order, because not every resource is created by Terraform.
 
-**The problem.** The ALB is not created by Terraform. The AWS Load Balancer Controller creates it from inside the cluster, out of the `Gateway` objects, so it does not appear in Terraform state. A `terraform destroy` with the `Gateway` objects still present removes the cluster along with the controller, which dies before it can delete the load balancer. The result is an orphaned ALB billing by the hour, its associated security groups, and frequently a `destroy` that fails because it cannot delete the VPC while those security groups are still in use.
+**The problem.** Neither load balancer is created by Terraform. The AWS Load Balancer Controller creates them from inside the cluster, out of the `Gateway` objects, so they do not appear in Terraform state. A `terraform destroy` with the `Gateway` objects still present removes the cluster along with the controller, which dies before it can delete them. The result is two orphaned load balancers billing by the hour, its associated security groups, and frequently a `destroy` that fails because it cannot delete the VPC while those security groups are still in use.
 
 **Shutdown order.** Automated in `make teardown`:
 
@@ -198,7 +200,7 @@ The `destroy` and `apply` cycle has a mandatory order, because not every resourc
 1. `terraform apply` on the `ephemeral` stack.
 2. `terraform apply` on the `platform` stack, which installs the namespaces, the Gateway API CRDs and class, and the controllers, Argo CD among them.
 3. Argo CD synchronises the manifests and creates the `Gateway` and `HTTPRoute` objects.
-4. The controller creates the ALB, with a new DNS name.
-5. `external-dns` updates the Route 53 ALIAS records to point at the new ALB.
+4. The controller creates both load balancers, each with a new DNS name.
+5. `external-dns` updates the Route 53 ALIAS records to point at the new names.
 
 **Verifying nothing is still billing.** After every shutdown, check that no load balancers, unassociated elastic IPs or orphaned EBS volumes remain, because those are the three resources that most easily survive an incomplete `destroy` and consume credits silently. `make orphans` automates the check.
