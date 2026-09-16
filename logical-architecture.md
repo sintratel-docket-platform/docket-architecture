@@ -16,7 +16,7 @@ Five microservices and a message queue. Each service is deployed separately and 
 
 | Component | Stack | Role | Environment variables |
 |---|---|---|---|
-| **Frontend** | Vue.js | Web interface and proxy towards the APIs. The only publicly exposed component, through the gateway the AWS Load Balancer Controller materialises as an ALB with an ACM certificate. | `PORT`, `AUTH_API_ADDRESS`, `TODOS_API_ADDRESS`, `ZIPKIN_URL` |
+| **Frontend** | Vue.js, served by nginx | Web interface. nginx serves the built single-page application and answers `GET /health`; it holds no proxy, so the browser reaches the APIs through the `HTTPRoute`, not through it. | `PORT`, `AUTH_API_ADDRESS`, `TODOS_API_ADDRESS`, `ZIPKIN_URL` |
 | **Auth API** | Go | Authentication. `POST /login` validates credentials against Users API and issues a JWT. | `AUTH_API_PORT`, `USERS_API_ADDRESS`, `JWT_SECRET`, `ZIPKIN_URL` |
 | **Users API** | Java, Spring Boot | User profiles, read only: `GET /users` and `GET /users/:username`. | `SERVER_PORT`, `JWT_SECRET` |
 | **Todos API** | Node.js | Task CRUD: `GET`, `POST` and `DELETE /todos`. Publishes an event on every create and delete. | `TODO_API_PORT`, `JWT_SECRET`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_CHANNEL`, `ZIPKIN_URL` |
@@ -27,15 +27,15 @@ Five microservices and a message queue. Each service is deployed separately and 
 
 ### Authentication
 
-The browser enters through the gateway and reaches the Frontend, which exposes `/login` as a proxy towards Auth API. To validate the credentials, Auth API requests the profile from Users API (`GET /users/:username`) and compares it against its list of allowed credentials. On a match it issues the JWT the rest of the session will use.
+The browser posts to `/login`, and the `HTTPRoute` sends that prefix to Auth API. To validate the credentials, Auth API requests the profile from Users API (`GET /users/:username`) and compares it against its list of allowed credentials. On a match it issues the JWT the rest of the session will use.
 
 > To call Users API, Auth API signs its own service token with the same `JWT_SECRET` and sends it as a `Bearer`. The shared secret therefore serves two purposes: it validates user tokens and it authenticates the call between services.
 
 ### Task operations
 
-The Frontend uses the user JWT to call Todos API through the `/todos` proxy. Todos API validates the token with the same secret Auth API signed it with.
+The browser sends the user JWT to `/todos`, and the `HTTPRoute` sends that prefix to Todos API. Todos API validates the token with the same secret Auth API signed it with.
 
-**Users API receives no traffic from the Frontend.** The Frontend proxy declares three routes: `/login`, `/todos` and `/zipkin`. Its only client is Auth API.
+**Users API is not exposed.** The `HTTPRoute` declares three matches, `/login` to Auth API, `/todos` to Todos API and `/` to the Frontend. Users API appears in none of them, so its only client is the traffic that reaches it inside the namespace, from Auth API and from Todos API.
 
 ### Asynchronous logging
 

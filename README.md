@@ -44,10 +44,16 @@ These conditions determine [ADR-002](decisions.md#adr-002-secrets-with-external-
 
 | Diagram | Image | Document explaining it | Editable source |
 |---|---|---|---|
-| Logical architecture | [`img/logical-architecture.png`](img/logical-architecture.png) | [`logical-architecture.md`](logical-architecture.md) | Eraser |
-| Deployment per environment | [`img/environments.png`](img/environments.png) | [`environments.md`](environments.md) | Eraser |
+| Logical architecture | [`img/logical-architecture.png`](img/logical-architecture.png) | [`logical-architecture.md`](logical-architecture.md) | Lucidchart |
+| Deployment per environment | [`img/environments.png`](img/environments.png) | [`environments.md`](environments.md) | Lucidchart |
 | AWS infrastructure | [`img/aws-infrastructure.png`](img/aws-infrastructure.png) | [`aws-infrastructure.md`](aws-infrastructure.md) | Lucidchart |
+| How the pipelines connect | [`img/pipeline-map.png`](img/pipeline-map.png) | [`pipelines.md`](pipelines.md) | Lucidchart |
+| Commit to development | [`img/pipeline-commit-to-development.png`](img/pipeline-commit-to-development.png) | [`pipelines.md`](pipelines.md) | Lucidchart |
+| Promotion to production | [`img/pipeline-promotion-to-production.png`](img/pipeline-promotion-to-production.png) | [`pipelines.md`](pipelines.md) | Lucidchart |
+| Cluster lifecycle | [`img/pipeline-cluster-lifecycle.png`](img/pipeline-cluster-lifecycle.png) | [`pipelines.md`](pipelines.md) | Lucidchart |
+| Module to live infrastructure | [`img/pipeline-module-to-infrastructure.png`](img/pipeline-module-to-infrastructure.png) | [`pipelines.md`](pipelines.md) | Lucidchart |
+| Rollback | [`img/pipeline-rollback.png`](img/pipeline-rollback.png) | [`pipelines.md`](pipelines.md) | Lucidchart |
 
 The PNGs in `img/` are the published version and travel with the repository. The editable source of each diagram lives in the tool indicated. When a diagram changes, the PNG must be re-exported under the same file name so the documents embedding it keep resolving.
 
-> The diagrams are still labelled in Spanish. Re-exporting them in English is pending; it requires the editable sources in Eraser and Lucidchart, not just this repository.
+**A diagram is documentation and goes stale the same way.** All nine were redrawn on 16 September 2026 after a review found every one of them describing a state the platform had left behind: Ingress after the move to the Gateway API, one load balancer after production got its own, SonarQube and Prometheus as if they were deployed, Renovate opening a pull request it has never opened, and the AWS view still labelled in Spanish. None of the four changes responsible carried its diagram along, because the editable source lives outside the repository and never enters a pull request. A change that alters what a diagram shows is not finished until the PNG is re-exported.
