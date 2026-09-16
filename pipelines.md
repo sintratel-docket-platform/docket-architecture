@@ -3,9 +3,9 @@
 How work reaches the cluster, which automation owns each step, and where a change is
 stopped when it should not go further.
 
-The project runs ten pipelines across four repositories. Six work today. Four belong to
-card 14 and later. This document maps all of them and sequences the six where the order of
-messages between independent actors carries information.
+The project runs twelve pipelines across four repositories. This document maps all of
+them and sequences the ones where the order of messages between independent actors
+carries information.
 
 ## Why the work is split across pipelines
 
@@ -24,8 +24,10 @@ costs the full run.
 artifacts and that Argo CD perform the deployment. A pipeline that did both would collapse
 that boundary.
 
-The project therefore needs one more pipeline, `verify`, which runs after deployment and
-produces the signal that authorises promotion.
+The project therefore needs one more pipeline, `verify`, which runs the two upper test
+levels and produces the signal that authorises promotion. It does not run after
+deployment as a reaction to it, for the reason Sequence 5 gives; it runs inside the
+promotion pipeline itself, before a promotion is even written.
 
 ## Which pipelines get a sequence diagram
 
@@ -40,7 +42,7 @@ in less space.
 | promotion | `docket-gitops` | 5 | Sequence 2 |
 | `infrastructure` | `docket-infrastructure` | 6 | Sequence 3 |
 | `release` and Renovate | `docket-terraform-modules` | 6, crosses repositories | Sequence 4 |
-| `verify` | `docket-gitops` | 7 | Sequence 5 |
+| `verify` | `docket-gitops`, inside `promote.yml` | 1 (one job in one runner) | Sequence 5, as a table |
 | rollback | `docket-gitops` | 5 | Sequence 6 |
 | `pr-conventions` | all nine | 2 | Gate table |
 | `terraform-ci` | `docket-infrastructure` | 2 | Gate table |
@@ -70,8 +72,9 @@ credentials. Every deployment happens because Argo CD read a commit.
 **Verification gates promotion.** `verify` turns a deployed version into a promotable one,
 and its result is the evidence a promotion rests on. The contract is fixed by ADR-014: a
 commit status named `verify` on the `docket-gitops` commit that deployed the version.
-Until cards 16 and 17 write it, `gitops-ci` reports the gate as a warning rather than
-blocking.
+Cards 16 and 17 write it (ADR-022): `promote.yml` runs the gate and sets the status
+before a promotion pull request exists, so `gitops-ci`'s own read of it, on the pull
+request that does open, always finds `success` already there.
 
 ## The test pyramid, and where each level runs
 
@@ -80,35 +83,46 @@ The three levels the deliverables document requires belong in different places.
 | Level | Runs in | Against | Trigger | Card |
 |---|---|---|---|---|
 | Unit | `service-ci` | the code, nothing deployed | every push and pull request | 10 |
-| Integration | `verify` | the services running in `dev` | Argo CD reports `dev` Healthy | 16 |
-| End to end | `verify` | the full journey through `dev` | same run, after integration | 17 |
+| Integration | `service-ci` | the code, with ephemeral doubles standing in for its real collaborators (`AGENTS.md` §9.1) | every push and pull request | 16 |
+| End to end | `verify`, inside `promote.yml` | a deployed environment, through its public host | a promotion is requested | 17 |
 
 The split follows from what each level needs. Unit tests need a compiler. Integration
-tests need several services talking to each other and to Redis. End to end tests need the
-frontend, the APIs and the queue all reachable through the gateway.
+tests need a real collaborator, kept ephemeral for the run — a double is enough, and every
+built suite uses one. End to end tests need the frontend, the APIs and the queue all
+reachable through the gateway, which only a real deployment gives.
 
 Coverage is produced at the unit level and consumed by SonarQube. Integration and end to
 end produce pass or fail plus traces, and their result is what the promotion gate reads.
 
-**Current state, 11 September 2026.** All five services carry a suite and `service-ci` runs
-it on every change. 106 tests, 71 at level 1 and 35 at level 2.
+**Current state, 16 September 2026.** All five services carry a suite and `service-ci` runs
+it on every change. 134 tests, 96 at level 1 and 38 at level 2. Line coverage is reported
+per pull request by each service's own CI and not summarised here, to avoid a number that
+goes stale the moment it is written; card 11 (SonarQube) is where it will be consumed.
 
-| Service | L1 | L2 | Line coverage |
-|---|---|---|---|
-| `auth-api` | 12 | 11 | 60.6% |
-| `users-api` | 11 | 10 | 80.6% |
-| `todos-api` | 9 | 8 | 53.2% |
-| `log-message-processor` | 2 | 6 | 69% |
-| `frontend` | 37 | 0 | 75.4% |
+| Service | L1 | L2 |
+|---|---|---|
+| `auth-api` | 19 | 13 |
+| `users-api` | 12 | 9 |
+| `todos-api` | 14 | 9 |
+| `log-message-processor` | 8 | 7 |
+| `frontend` | 43 | 0 |
 
-Level 3 has nothing yet and is correctly blocked. It needs a deployed staging
-environment, which is card 22.
+Level 3 exists (`docket-gitops/e2e`, six scenarios) and, since card 17, runs automatically
+inside `promote.yml` — see Sequence 5.
 
-Two gaps the numbers hide. `server.js` in `todos-api` and `main.js` in the frontend sit at
-0%, because the level 2 helper builds its own Express app rather than booting the real
-one, so nothing at any level exercises the process starting up. That belongs to level 3.
-And `frontend` has no level 2 at all, which `AGENTS.md` section 9.2 intends and card 16
-contradicts. One of the two is wrong and nobody has decided which.
+**Doubles, not a live `dev`, for level 2 — resolved (ADR-022).** This section used to note
+a contradiction: level 2 was designed to run inside `verify` against a real deployed `dev`,
+but every suite that got built uses doubles instead, which is what `AGENTS.md` §9.1
+explicitly permits ("real, but ephemeral: containers, in-memory doubles"). `AGENTS.md`'s
+design is the one that stands. Running level 2 again against a live `dev` would duplicate
+level 3's job with a different mechanism, at the cost of needing that job to reach a real
+cluster network, which no other pipeline in this project does.
+
+`frontend` had no level 2 suite until card 16 closed it, against a stub standing in for
+`auth-api` and `todos-api` — the same shape the other four services already use. The
+`server.js` / `main.js` start-up gap the previous version of this section noted is level
+3's territory: the suite now runs against the real deployed process, not a helper that
+builds its own app in-process.
 
 ## Sequence 1. Commit to development
 
@@ -297,20 +311,35 @@ It also shows why the exposure scan runs first in `module-ci`. The module reposi
 public and so is its Git history, so clearing an account identifier committed by mistake
 requires rewriting history.
 
-## Sequence 5. Verification after deployment
+## Sequence 5. Verifying a version before it is promoted
 
-![Verification after deployment](img/pipeline-verification.png)
+The pipeline that puts evidence behind a promotion, and where it actually runs (ADR-022,
+card 17). It is not a diagram: it is one job inside the promotion pipeline (Sequence 2),
+not several independent actors exchanging messages, so a table says what a sequence
+diagram would.
 
-The upper two levels of the test pyramid, and the pipeline that puts evidence behind a
-promotion.
+**The trigger is a promotion being requested, not a deployment finishing.** The design this
+section used to describe had the end to end suite triggered by Argo CD reporting `dev`
+Synced and Healthy. Nothing ever built that trigger: it needed a way for the cluster to
+reach GitHub Actions, and the only notification target Argo CD has is a Slack webhook.
+Building one would have meant a GitHub credential living inside the cluster, a category of
+credential every other pipeline in this project was built to avoid. The suite itself needs
+no such thing — it drives a browser against a deployed environment's public host, which is
+exactly what a person did by hand for every gate this project ran before card 17.
 
-The deployment triggers it. Argo CD reports `dev` as Synced and Healthy, and the
-integration and end to end suites then run against the services that are actually running.
+| Step | What happens |
+|---|---|
+| 1. A promotion is dispatched | `promote.yml`'s `verify` job resolves the source environment from the target, and its public host |
+| 2. The gate runs | The level 3 suite, in the pinned Playwright image: the smoke suite for a promotion into `staging`, the full suite for one into `production` |
+| 3. The result is written | `promote`'s job writes the `verify` commit status on every service's deploy commit being promoted, from that result |
+| 4. The gate decides | Pass: `promote` continues to write `newTag` and open the pull request, with a `Gate evidence:` comment. Fail: the job stops there — no pull request opens |
 
-The outcome is a gate. Suites pass and the version is recorded as promotable, so the
-promotion pipeline has something to act on. Suites fail and the version stays in `dev` with
-a named failing scenario. This is what the deliverables document means by minimum approval
-criteria for promotion between environments.
+The outcome is still the same gate ADR-014 fixed: `gitops-ci`, on whatever pull request
+later moves a version, reads the same `verify` status from the same deploy commit and
+finds it already resolved. Level 2's own criterion in card 16 — that the pipeline blocks
+promotion when it fails — needed no new pipeline at all: `service-ci`'s `image` job already
+needs `test`, so a version cannot reach `docket-gitops` without level 1 and level 2 passing
+for that exact commit.
 
 ## Sequence 6. Rolling back a bad release
 
@@ -379,11 +408,12 @@ groups do not cross repositories, so two merges landing together collide on the 
 step needs a rebase and a bounded retry, and it needs to fail visibly rather than leave a
 tag half written.
 
-**How a version is recorded as promotable. A commit status.** Sequence 5 ends with
-`verify` writing that signal, and ADR-014 fixed it as a status named `verify` on the
-`docket-gitops` commit that deployed the version: visible next to the change it judges, and
-readable without access to the private service repositories. A Git tag cannot carry a
-failure, and a file needs a commit per run.
+**How a version is recorded as promotable. A commit status.** ADR-014 fixed it as a status
+named `verify` on the `docket-gitops` commit that deployed the version: visible next to the
+change it judges, and readable without access to the private service repositories. A Git
+tag cannot carry a failure, and a file needs a commit per run. Sequence 5 answers who
+writes it and when, settled later by ADR-022: the promotion pipeline itself, before the
+pull request that would need it exists.
 
 **Where SonarQube runs.** Self hosted inside the cluster or SonarCloud. The choice changes
 the credentials the pipeline needs, and it belongs to card 11.

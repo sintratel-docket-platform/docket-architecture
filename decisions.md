@@ -664,6 +664,43 @@ The record is private because it names people, roles and paths; this decision is
 
 ---
 
+## ADR-022 Level 2 and 3 gates run inside the promotion pipeline, not reactively
+
+**Status:** Implemented.
+
+**Context.** ADR-014 fixed how a version becomes promotable: a commit status named `verify` on the `docket-gitops` commit that deployed it, which `gitops-ci` reads before letting a promotion proceed. The original design behind that contract, in `pipelines.md`'s `verify` pipeline, was reactive — triggered by Argo CD reporting `development` Synced and Healthy, running the integration and end-to-end suites against it, and writing the status from there. Nobody ever built the trigger. Every gate this project has run — cards 22, 23, 25, 26, 27 among them — was a person running the level 3 suite by hand and pasting its result into a pull request comment. The suites themselves need no cluster or cloud credential: they drive a browser against a deployed environment's public host, exactly what a person did. The reactive trigger would have needed one anyway — Argo CD's only notification target is a Slack webhook, and reaching GitHub Actions from inside the cluster means a GitHub credential living there, a category this project's every other pipeline was built to avoid. The cards that owned this work, 16 and 17, sat assigned to a team member with no commits or pull requests in any repository of the project.
+
+**Decision.** The gate runs synchronously, inside the pipeline that already asks for a promotion, instead of reacting to a deployment.
+
+| Piece | Where | What it does |
+|---|---|---|
+| The `verify` job | `docket-gitops`, inside `promote.yml` | Before anything is written, runs the level 3 suite in the pinned Playwright image against the promotion's source environment: the smoke suite for a staging promotion, the full suite for a production one |
+| The status write | The same workflow, the `promote` job | Writes the `verify` commit status on every service's deploy commit from the gate's result, before `newTag` is touched or a pull request opens |
+| The block | `promote.yml`, and `promotion-order.sh`'s `cmd_gate` | A failed gate stops the run before any pull request exists; `cmd_gate` now fails on any status but `success`, absent and pending included, since something writes one from here on |
+| The evidence | A `Gate evidence:` comment on the promotion pull request | The same format a person wrote by hand all session, generated instead of pasted |
+| Level 2's own criterion | No new code | `service-ci`'s `image` job already needs `test`, so a version cannot reach `docket-gitops` without level 1 and level 2 passing for that exact commit — "the pipeline blocks promotion" for level 2 was already true by construction |
+
+Credentials for the suite — three pairs, one per source environment level 3 gates, plus the second account the full suite's isolation scenario needs — are read directly from repository secrets into the run step's environment, never through a step output, so they are never retrievable from a run's API even once GitHub masks them in its log.
+
+**Consequences.**
+- The gate that ADR-014 designed for now has a writer. `gitops-ci`'s read of `verify` needs no change: it already computes the same deploy commit independently and finds the status already set by the time a promotion pull request exists.
+- No new credential surface was opened. The suite still only ever talks to a public HTTPS host.
+- A promotion moving several services together is verified once, as one environment, and every service in that batch carries the same verdict — the suite exercises the whole stack, not one service in isolation, so re-running it per service would test nothing new.
+- `cmd_gate`'s tightening applies to every future promotion from the moment it merges, not only the ones this card cares about; the six credentials it depends on have to exist before the first promotion after that, or every promotion fails outright until they do.
+- The reactive design `pipelines.md` originally sketched is superseded, not merely unbuilt; the document is rewritten to describe what actually runs.
+
+**Rejected alternatives.**
+
+*The original reactive trigger, from Argo CD reporting `development` Healthy.* Needed a new notification target and a GitHub credential inside the cluster for information the pipeline can get by driving the same public host a person already used.
+
+*A combined JSON secret for all environments' credentials.* Harder to rotate one environment's accounts independently, and puts every environment's credentials in one payload.
+
+*Re-checking level 1 and level 2 from `docket-gitops` for each promotion.* Would need read access into five more private repositories for a fact the job graph already guarantees — a version cannot exist in `docket-gitops` without having passed `test` for that exact commit.
+
+*Passing suite credentials through a step output.* An output is visible from a workflow run's API in cleartext, independent of the masking applied to logs; reading secrets straight into an `env:` block at the point of use avoids that entirely.
+
+---
+
 ## Open assumptions
 
 Statements this design takes as true and worth resolving before or during the Terraform work.
