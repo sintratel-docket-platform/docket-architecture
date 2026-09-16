@@ -36,6 +36,13 @@ Statuses: **Accepted** · **Assumption** (taken in the absence of guidance to th
 | [013](#adr-013-semantic-versioning-for-services-and-modules) | Semantic versioning for services and modules | Accepted |
 | [014](#adr-014-promotion-between-environments) | Promotion between environments | Implemented |
 | [015](#adr-015-staging-shares-the-non-production-load-balancer) | Staging shares the non-production load balancer | Implemented |
+| [016](#adr-016-production-approval-without-branch-protection) | Production approval without branch protection | Implemented |
+| [017](#adr-017-exposure-through-the-gateway-api) | Exposure through the Gateway API | Implemented |
+| [018](#adr-018-productions-argo-cd-project-gateway-and-restore-on-start) | Production's Argo CD project, gateway and restore on start | Implemented |
+| [019](#adr-019-release-notes) | Release notes | Implemented |
+| [020](#adr-020-independent-approval-as-a-policy-parameter) | Independent approval as a policy parameter | Implemented |
+| [021](#adr-021-security-controls-applied-and-the-ones-deferred-on-record) | Security controls applied, and the ones deferred on record | Implemented |
+| [022](#adr-022-level-2-and-3-gates-run-inside-the-promotion-pipeline-not-reactively) | Level 2 and 3 gates run inside the promotion pipeline, not reactively | Implemented |
 
 ---
 
