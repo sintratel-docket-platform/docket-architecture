@@ -43,6 +43,7 @@ Statuses: **Accepted** · **Assumption** (taken in the absence of guidance to th
 | [020](#adr-020-independent-approval-as-a-policy-parameter) | Independent approval as a policy parameter | Implemented |
 | [021](#adr-021-security-controls-applied-and-the-ones-deferred-on-record) | Security controls applied, and the ones deferred on record | Implemented |
 | [022](#adr-022-level-2-and-3-gates-run-inside-the-promotion-pipeline-not-reactively) | Level 2 and 3 gates run inside the promotion pipeline, not reactively | Implemented |
+| [023](#adr-023-observability-cloudwatch-container-insights) | Observability: CloudWatch Container Insights | Accepted |
 
 ---
 
