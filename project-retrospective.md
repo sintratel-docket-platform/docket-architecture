@@ -23,7 +23,8 @@ Consolidated from four sources, each already checked against the current state o
 | L2 | Three IAM users hold `AdministratorAccess`; the deploy role's own policy carries broad wildcard actions with no CloudTrail trail to validate a narrower one | A compromised credential or pipeline run can act on the whole AWS account | A role per task, assumed rather than held; a CloudTrail trail, then the scoped policy | Accepted, no card |
 | L3 | Production approval is recorded and audited, not enforced by GitHub; while `independent-approval` is `not-required`, one person can request, approve, merge and sync a change alone | An unreviewed change reaches production | A paid GitHub plan for branch protection (#39); the parameter set back to `required` once a second approver is available | #39, ADR-020 |
 | L4 | Every released image can carry HIGH severity findings; the pipeline blocks only CRITICAL. `users-api` alone carries 17, from Spring Boot 1.5.6, out of support since 2019 | A known vulnerability reaches production, `users-api`'s concretely | The `main → dev` gate raising its threshold; `users-api`'s dependency stack modernised | #49 for `users-api`; the gate itself has no card yet |
-| L5 | No metrics, dashboards or alerts exist; the load balancer's health checks fail open for `auth-api` and `todos-api` | A failing service is noticed by a person, not by an alert, and unhealthy targets keep receiving traffic | The observability stack and real health endpoints | #20, #21, in progress |
+| L5 | No metrics, dashboards or alerts exist. Card #20's first phase closed the health-endpoint half of this row (see below), so Kubernetes now holds back a version that does not answer, but nothing watches the platform over time | A failing service is noticed by a person reading Slack or running a command, not by an alert | The observability stack, metrics and alert rules | #20, #21, in progress |
+| L16 | The load balancer still health-checks `GET /` on every target group, which `auth-api` and `todos-api` answer with 404, and it treats that as healthy | An unhealthy target keeps receiving traffic, since the check cannot tell a served 404 from a working service | Point each target group's health check at the `/health` endpoint those services now expose | Accepted, no card; the endpoint it needs already exists |
 | L6 | Production's todos live in memory inside `todos-api`; a restart loses every user's tasks | Data loss on any restart, including a routine node replacement | A real store behind `todos-api` | Accepted, no card |
 | L7 | Namespace egress is not restricted | A compromised pod can reach the internet and exfiltrate data | An egress `NetworkPolicy` per namespace | Accepted, no card |
 | L8 | Pod Security enforces `baseline`, not `restricted`; nothing sets `readOnlyRootFilesystem` | A pod can run with more privilege than it needs | `redis` given a security context, `enforce` raised, `readOnlyRootFilesystem` added service by service | Accepted, no card |
@@ -37,6 +38,8 @@ Consolidated from four sources, each already checked against the current state o
 
 **Closed since first recorded.** `security-controls.md`'s own R10, "the level 2 and 3 gates are run by hand, with no `verify` status and no blocking," named cards #16 and #17 as what would close it. Both are done. The `verify` job inside `promote.yml` runs the suites and blocks a promotion pull request on failure, exercised for real on 16 September 2026. The source file itself, tied to card #19, is not edited here; this note reflects the current state without it.
 
+**Partly closed since first recorded.** Card #20's first phase gave every service a way to say whether it is working. `auth-api`, `users-api`, `todos-api` and the frontend each answer an unauthenticated `GET /health`, `log-message-processor` refreshes a heartbeat file, and the Kubernetes probes read both, so a version that starts without serving never becomes `Ready` and a wedged worker is restarted. That is the signal layer alerting will consume. Collecting it, storing it and acting on it automatically is still ahead, in the rest of #20 and in #21.
+
 ## Prioritised future improvements
 
 Ranked by impact if the underlying limitation stays wrong, from the table above, ahead of convenience or cosmetic fixes.
@@ -44,13 +47,13 @@ Ranked by impact if the underlying limitation stays wrong, from the table above,
 1. **Narrow the deploy role's IAM policy and remove standing `AdministratorAccess`** (L2). This carries the highest blast radius of anything on this list, since a single compromised credential can act on the whole account today.
 2. **Enforce production approval** (L3), through branch protection once a paid GitHub plan is available, or a second team member before then.
 3. **Modernise `users-api`'s dependency stack** (L4), the only concrete path that actually closes the 17 HIGH findings rather than continuing to accept them.
-4. **Ship observability and alerting** (L5), already in progress as cards #20 and #21.
+4. **Collect and act on what the services now report** (L5). The health endpoints and probes shipped as card #20's first phase, so the remaining work is metrics, dashboards and alert rules, in the rest of #20 and in #21.
 5. **Give `todos-api` a real data store** (L6), the one limitation on this list with a direct, visible cost to an end user.
 6. **Per-person Argo CD access** (L1), which also closes the "who synced" gap named in three of the four source documents.
 7. **Restrict namespace egress and raise Pod Security to `restricted`** (L7, L8), lower likelihood than the items above, real impact if exploited.
 8. **Run a penetration test** (L9), required by the deliverables and not yet attempted.
 
-Lower priority, real but smaller in impact or already partly mitigated. Narrower installation scopes for `renovate` and SonarQube (L11), a project per non-production Argo CD Application (L12), bringing `allowed-users` under Terraform for staging and production (L10), and the Spanish IAM statement identifiers (L13) all belong here.
+Lower priority, real but smaller in impact or already partly mitigated. Pointing the load balancer's health checks at the `/health` endpoints that now exist (L16), narrower installation scopes for `renovate` and SonarQube (L11), a project per non-production Argo CD Application (L12), bringing `allowed-users` under Terraform for staging and production (L10), and the Spanish IAM statement identifiers (L13) all belong here. L16 is the cheapest of them now that the endpoint it needs is already served.
 
 Cards #28, #29 and #30 (a task-board feature area, deprioritised by the team lead while this documentation batch is in progress) and card #52 (Renovate has never actually run; its own card names the investigation needed before a fix is even scoped) are absent from this ranking because they are already decided, not because they are unimportant.
 
