@@ -18,7 +18,7 @@ Alongside the application, running inside the cluster:
 | **External Secrets Operator** | Materialises the parameters it reads from SSM Parameter Store as Kubernetes `Secret` objects, per namespace |
 | **AWS Load Balancer Controller** | Translates a `Gateway` and its `HTTPRoute`s into ALB configuration ([ADR-017](decisions.md#adr-017-exposure-through-the-gateway-api)) |
 | **Health endpoints and probes** | Every service answers an unauthenticated `GET /health`, except the worker, which refreshes a heartbeat file. The Kubernetes probes read both, so a version that starts without serving never becomes `Ready` ([card 20](project-retrospective.md#current-limitations), first phase) |
-| **Observability stack** | CloudWatch Container Insights, through the CloudWatch Observability EKS add-on; Zipkin instrumentation is preserved but unwired ([ADR-023](decisions.md#adr-023-observability-cloudwatch-container-insights)) |
+| **Planned observability** | CloudWatch Container Insights through the CloudWatch Observability EKS add-on is the accepted target ([ADR-023](decisions.md#adr-023-observability-cloudwatch-container-insights)); deployment is handled separately by the infrastructure repository. Zipkin instrumentation is preserved but unwired. |
 
 Operational alerts are not deployed; they are card 21.
 
