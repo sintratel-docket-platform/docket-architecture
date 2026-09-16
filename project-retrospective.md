@@ -19,7 +19,7 @@ Consolidated from four sources, each already checked against the current state o
 
 | # | Limitation | Impact if it is wrong | What would close it | Card |
 |---|---|---|---|---|
-| L1 | Argo CD is reached with one shared `admin` account; a sync names no individual | A sync nobody approved reaches an environment and the record cannot say who | Per-person Argo CD access | #19, accepted no card |
+| L1 | Argo CD is reached with one shared `admin` account; a sync names no individual | A sync nobody approved reaches an environment and the record cannot say who | Per-person Argo CD access | Accepted, no card. Card #19 recorded this risk without closing it |
 | L2 | Three IAM users hold `AdministratorAccess`; the deploy role's own policy carries broad wildcard actions with no CloudTrail trail to validate a narrower one | A compromised credential or pipeline run can act on the whole AWS account | A role per task, assumed rather than held; a CloudTrail trail, then the scoped policy | Accepted, no card |
 | L3 | Production approval is recorded and audited, not enforced by GitHub; while `independent-approval` is `not-required`, one person can request, approve, merge and sync a change alone | An unreviewed change reaches production | A paid GitHub plan for branch protection (#39); the parameter set back to `required` once a second approver is available | #39, ADR-020 |
 | L4 | Every released image can carry HIGH severity findings; the pipeline blocks only CRITICAL. `users-api` alone carries 17, from Spring Boot 1.5.6, out of support since 2019 | A known vulnerability reaches production, `users-api`'s concretely | The `main → dev` gate raising its threshold; `users-api`'s dependency stack modernised | #49 for `users-api`; the gate itself has no card yet |
