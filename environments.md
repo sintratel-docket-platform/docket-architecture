@@ -35,7 +35,7 @@ Each environment has two independent controls: one over the merge in the manifes
 |---|---|---|
 | `dev` | None additional | `automated`, syncs when the change is detected |
 | `staging` | Pull request with review | `automated`, syncs after the merge |
-| `prod` | Pull request with an approval from a named approver, checked and audited ([ADR-016](decisions.md#adr-016-production-approval-without-branch-protection)); whether that approver may be the requester is a policy parameter ([ADR-020](decisions.md#adr-020-independent-approval-as-a-policy-parameter)) | **Manual**, an approver triggers the sync after the merge and records it |
+| `prod` | Pull request with an approval from a named approver, checked and audited ([ADR-016](decisions.md#adr-016-production-approval-without-branch-protection)); whether that approver may be the requester is a policy parameter ([ADR-020](decisions.md#adr-020-independent-approval-as-a-policy-parameter)) | **Manual**, an approver triggers the sync after the merge and records it; who may sync is recorded, not enforced ([ADR-021](decisions.md#adr-021-security-controls-applied-and-the-ones-deferred-on-record)) |
 
 The distinction between the two controls matters in production. Approving and merging the pull request leaves the version declared in Git, and the change reaches the cluster only when a person runs the sync of the Argo CD `Application`. They are two separate, auditable acts.
 

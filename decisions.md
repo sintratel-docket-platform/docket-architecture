@@ -624,6 +624,46 @@ Every named approver stays an approver, and the merge must still be made by one.
 
 ---
 
+## ADR-021 Security controls applied, and the ones deferred on record
+
+**Status:** Implemented.
+
+**Context.** Card 19 asks for the technical security minimums: permissions, basic policies, separation by environment and a smaller risk surface. Three cards had already ended with the same gaps written on their own board comment and nowhere else: the deployment tool is reached with one shared account, so a production sync is recorded rather than restricted; the people who run the project hold full administrator in the cloud account; and the controls that do exist had never been listed in one place. The team is three students on course credits, with a free plan that offers no branch protection on private repositories, and production had just gone live. Closing the two large gaps means identities in the deployment tool and a split of cloud administration, each a migration with its own rehearsal.
+
+**Decision.** State the minimum for every identity, apply only what is cheap and cannot break the delivery flow, and record the rest as accepted risk rather than leaving it implied.
+
+| Piece | Where | What it holds |
+|---|---|---|
+| The record | A document in the private infrastructure repository | Per identity: what it can do today, what it needs, and the gap. Pipelines, repositories and people, deployments, cluster and deployment tool, namespaces and workloads |
+| The enforcement design | The same document | How per-person access and a role that grants the production sync only to the approvers would work, so the migration is a decision, not a study |
+| The register | The same document | One row per accepted risk: the reason, the impact if the judgement is wrong, what would close it, and the open card that owns the work when one does |
+| The re-check | The same document | A read-only command per claim, none of which prints a secret; when the command and the record disagree, the command is right |
+| The applied change | The development environment's application credentials | Rotated away from the values published by the upstream project this fork came from |
+
+The record is private because it names people, roles and paths; this decision is the public half.
+
+**Consequences.**
+- A gap is now a row with a reason and an impact instead of a sentence in an old board comment; the delivery comments of the three cards are folded into it.
+- The team can tell an accepted risk from an overlooked one, which is what an evaluator, or the next person, needs.
+- The controls that already existed are visible: per-repository image push, deployment credentials scoped to one repository, secrets read per environment through workload identity, a namespace per environment with its quota, network policy and a role without a shell into production's pods, and workloads that run unprivileged.
+- Nothing enforces the production sync rule yet, so the sync record and the notices stay the only trail of who changed production.
+- The broad deploy policy stays until a full lifecycle can be exercised against the scoped candidate; without an audit trail that evidence cannot be collected.
+- A permission changed without updating the record makes the record wrong. The re-check commands are the defence, and the rule that the same pull request updates both.
+
+**Rejected alternatives.**
+
+*Applying per-person access to the deployment tool now.* It needs identities or an identity provider, a role policy, and a rehearsal on a cluster start, in the same week the first production release happened.
+
+*Splitting cloud administration now.* The team granted itself administrator to unblock its own work; a narrower set would be re-granted the first time it blocks someone before a deadline, which teaches the wrong lesson about controls.
+
+*Attaching the scoped deploy policy without evidence.* A missing action appears during destroy paths, not during a plan, so it can stop a recovery halfway.
+
+*Raising the pod admission level to the strictest one.* The application workloads already satisfy it, but the cache does not and would be rejected, taking the environments down.
+
+*Leaving the gaps in the board comments.* They were scattered across three cards, each stating a subset, and nothing said whether a gap was accepted or forgotten.
+
+---
+
 ## Open assumptions
 
 Statements this design takes as true and worth resolving before or during the Terraform work.

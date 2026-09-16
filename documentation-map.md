@@ -98,7 +98,7 @@ The canonical source every repository distributes from.
 | 05 | Testing strategy | `AGENTS.md` §9. **No test suites yet beyond two Terraform modules** |
 | 06 | Change management and release notes | **Not started** |
 | 07 | Observability and monitoring | `logical-architecture.md`, target only. **Not deployed** |
-| 08 | Security | `AGENTS.md` §7.10 and §10, `policy/docket.rego`, `decisions.md` ADR-002, 006, 011 |
+| 08 | Security | `AGENTS.md` §7.10 and §10, `policy/docket.rego`, `decisions.md` ADR-002, 006, 011, 021; the per-identity record and the residual risk register live in the private infrastructure repository |
 | 09 | Documentation and presentation | This map. **Operations manual and cost analysis partially covered by `OPERATIONS.md` and `aws-infrastructure.md`** |
 
 Areas 03, 05, 06 and 07 are named here with their gaps stated rather than
