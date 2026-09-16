@@ -708,7 +708,7 @@ Credentials for the suite — three pairs, one per source environment level 3 ga
 
 ---
 
-## ADR-023 Observability: CloudWatch Container Insights and Fluent Bit
+## ADR-023 Observability: CloudWatch Container Insights
 
 **Status:** Accepted.
 
@@ -719,14 +719,16 @@ Credentials for the suite — three pairs, one per source environment level 3 ga
 | Responsibility | Tool | Role |
 |---|---|---|
 | Health | Kubernetes readiness and liveness probes, HTTP `/health` endpoints, the log processor's heartbeat exec probe | Already delivered; unchanged by this decision |
-| Metrics | Amazon CloudWatch Container Insights | Kubernetes/EKS operational metrics: pod and node CPU and memory, restart counts, desired versus available replicas |
+| Metrics | Amazon CloudWatch Container Insights, through the CloudWatch Observability EKS add-on | Kubernetes/EKS operational metrics: pod and node CPU and memory, restart counts, desired versus available replicas |
 | Metrics, immediate | `metrics-server` | Already installed; keeps `kubectl top` usable for a check with no dashboard |
-| Logs | Fluent Bit, shipping to CloudWatch Logs | Centralised, queryable container `stdout`/`stderr` |
+| Logs | The same CloudWatch Observability EKS add-on | Container `stdout`/`stderr`, centralised and queryable in CloudWatch Logs |
 | Deployment state | Argo CD | Sync and health status per environment; already the source of truth for what is declared versus deployed |
 | Tracing | Existing Zipkin instrumentation | Left in place, unwired; deploying a tracing backend is deferred |
 | Alerts | — | Out of scope of this decision; card 21 |
 
-Both the CloudWatch Agent and Fluent Bit are installed through the `amazon-cloudwatch-observability` Amazon EKS add-on, the same add-on mechanism already used for `vpc-cni`, `coredns`, `kube-proxy` and `eks-pod-identity-agent`. The agent receives least-privilege AWS permissions through the cluster's existing IRSA-based identity pattern, the same one already used for External Secrets Operator and the other controllers; the exact role and policy are resolved when the Terraform is written, not here.
+CloudWatch Container Insights is enabled through the `amazon-cloudwatch-observability` Amazon EKS add-on, the same add-on mechanism already used for `vpc-cni`, `coredns`, `kube-proxy` and `eks-pod-identity-agent`, with `otelContainerInsights.enabled = true` so metrics are collected through the OpenTelemetry-based path AWS currently recommends over the classic CloudWatch Agent pipeline. Container log collection lands in CloudWatch Logs, with the main container-log group named `/aws/containerinsights/<cluster-name>/application`. The add-on's other capability, Application Signals, stays disabled: card 20 asks for logs, metrics, health and visibility, not application-level tracing telemetry, so it is not part of this decision and is not auto-enabled by the implementation.
+
+The add-on's workloads authenticate through **EKS Pod Identity** rather than the IRSA pattern the rest of the cluster's controllers use: it is AWS's currently recommended option for this specific add-on, the cluster already runs the `eks-pod-identity-agent` add-on unused, and it associates the role directly with the add-on's `cloudwatch-agent` service account in its own `amazon-cloudwatch` namespace without widening the node's own IAM role. The permissions attached are AWS's documented `CloudWatchAgentServerPolicy`, used initially because it is the attachment AWS's own installation path expects; narrowing it to a project-scoped policy is left for the Terraform implementation to evaluate, not decided here. Retention on the resulting log groups is a cost-control setting owned by Terraform, set during implementation and not fixed by this ADR.
 
 **Consequences.**
 - Card 20's remaining acceptance criteria — logs queryable, a minimum metric set defined, deployment state visible, configuration documented — are covered without adding a stateful workload to the cluster.

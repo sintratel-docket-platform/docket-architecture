@@ -18,7 +18,7 @@ Alongside the application, running inside the cluster:
 | **External Secrets Operator** | Materialises the parameters it reads from SSM Parameter Store as Kubernetes `Secret` objects, per namespace |
 | **AWS Load Balancer Controller** | Translates a `Gateway` and its `HTTPRoute`s into ALB configuration ([ADR-017](decisions.md#adr-017-exposure-through-the-gateway-api)) |
 | **Health endpoints and probes** | Every service answers an unauthenticated `GET /health`, except the worker, which refreshes a heartbeat file. The Kubernetes probes read both, so a version that starts without serving never becomes `Ready` ([card 20](project-retrospective.md#current-limitations), first phase) |
-| **Observability stack** | CloudWatch Container Insights and Fluent Bit; Zipkin instrumentation is preserved but unwired ([ADR-022](decisions.md#adr-022-observability-cloudwatch-container-insights-and-fluent-bit)) |
+| **Observability stack** | CloudWatch Container Insights, through the CloudWatch Observability EKS add-on; Zipkin instrumentation is preserved but unwired ([ADR-022](decisions.md#adr-022-observability-cloudwatch-container-insights)) |
 
 Operational alerts are not deployed; they are card 21.
 
@@ -76,7 +76,7 @@ This flow imposes one constraint on tagging: **image tags must be immutable**. W
 
 The same applies to infrastructure: the Terraform pipeline provisions the AWS layer and leaves the inside of the cluster untouched. They are two independent flows. See [`aws-infrastructure.md`](aws-infrastructure.md#infrastructure-change-flow).
 
-> **Consequence of the ephemeral lifecycle.** The cluster is destroyed and recreated routinely ([ADR-010](decisions.md#adr-010-ephemeral-infrastructure-with-split-state)). Anything living inside it and not declared in the GitOps repository is lost on every cycle: Redis data is ephemeral by construction, and Argo CD must be installed from the Terraform stack or from a declared bootstrap so the cluster rebuilds without manual intervention. Observability data is the exception: CloudWatch metrics and logs are AWS-managed outside the cluster, so they outlive a destroy and apply cycle for as long as the configured retention keeps them ([ADR-022](decisions.md#adr-022-observability-cloudwatch-container-insights-and-fluent-bit)).
+> **Consequence of the ephemeral lifecycle.** The cluster is destroyed and recreated routinely ([ADR-010](decisions.md#adr-010-ephemeral-infrastructure-with-split-state)). Anything living inside it and not declared in the GitOps repository is lost on every cycle: Redis data is ephemeral by construction, and Argo CD must be installed from the Terraform stack or from a declared bootstrap so the cluster rebuilds without manual intervention. Observability data is the exception: CloudWatch metrics and logs are AWS-managed outside the cluster, so they outlive a destroy and apply cycle for as long as the configured retention keeps them ([ADR-022](decisions.md#adr-022-observability-cloudwatch-container-insights)).
 
 ## Dependencies between repositories and environments
 
