@@ -120,6 +120,7 @@ The infrastructure is destroyed and recreated routinely, so the Terraform is spl
 
 | Stack | Contains | Lifecycle |
 |---|---|---|
+| `bootstrap` | The state bucket itself, with versioning, encryption and public access blocked | Created once and stays |
 | `persistent` | ECR, Route 53 zone, ACM certificate, OIDC provider, IAM roles | Created once and stays |
 | `ephemeral` | VPC, subnets, NAT, EKS, node group, IRSA roles | `apply` and `destroy` on demand |
 | `platform` | Namespaces, quotas, RBAC, network policies, controllers | Rebuilt with the cluster |
