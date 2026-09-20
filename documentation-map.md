@@ -20,6 +20,7 @@ The reference architecture and the decisions behind it.
 | [`testing-strategy.md`](testing-strategy.md) | The three test levels, where and when each runs, what makes it pass, current counts per service | 05, 09 |
 | [`decisions.md`](decisions.md) | 22 ADRs with context, consequences and rejected alternatives | 09 |
 | [`project-retrospective.md`](project-retrospective.md) | The ADRs grouped by theme, current limitations consolidated from four repositories, and a ranked list of future improvements | 09 |
+| [`demo-runbook.md`](demo-runbook.md) | The technical demo script: order, commands, expected screens, timing, fallback plan, and what it does not claim | 09 |
 
 ### `docket-architecture/standards` — the engineering standards, here
 
@@ -101,7 +102,7 @@ The canonical source every repository distributes from.
 | 06 | Change management and release notes | **Not started** |
 | 07 | Observability and monitoring | `logical-architecture.md`, target only. **Not deployed** |
 | 08 | Security | `AGENTS.md` §7.10 and §10, `policy/docket.rego`, `decisions.md` ADR-002, 006, 011, 021; the per-identity record and the residual risk register live in the private infrastructure repository |
-| 09 | Documentation and presentation | This map. **Operations manual and cost analysis partially covered by `OPERATIONS.md` and `aws-infrastructure.md`** |
+| 09 | Documentation and presentation | This map, and [`demo-runbook.md`](demo-runbook.md) for the demo script. **Operations manual and cost analysis partially covered by `OPERATIONS.md` and `aws-infrastructure.md`** |
 
 Areas 03, 05, 06 and 07 are named here with their gaps stated rather than
 omitted, so the map reports the real coverage instead of implying completeness.
