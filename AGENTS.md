@@ -537,7 +537,7 @@ Chosen for the stack that exists, not the stack we would pick today. **Do not su
 | Service | Stack | L1 | L2 |
 |---|---|---|---|
 | `auth-api` | Go 1.24, Echo v3 | `testing` + `testify/assert` | `net/http/httptest`; `users-api` as a stubbed HTTP server |
-| `users-api` | Java 8, **Spring Boot 1.5.6** | **JUnit 4** + Mockito, via `spring-boot-starter-test` | `@SpringBootTest` with the H2 dependency already present |
+| `users-api` | Java 17, **Spring Boot 3.5.16** | **JUnit 4** + Mockito, run by JUnit Vintage 5.12.2 | `@SpringBootTest` with H2 2.3.232 |
 | `todos-api` | Node, Express 4 | **Jest** + `supertest` | Jest + a Redis double (`ioredis-mock`) or Testcontainers |
 | `log-message-processor` | Python | **pytest** | pytest + `fakeredis` |
 | `frontend` | **Vue 2 + webpack** | **Jest** + `@vue/test-utils` v1 | — |
@@ -547,7 +547,7 @@ L3 is one shared suite for the whole platform, in **Playwright**, living in its 
 **Two traps to avoid, both of which a model will walk into:**
 
 - **Not Vitest** for the frontend. Vitest is Vite-based; this is Vue 2 on webpack 3. Jest with `@vue/test-utils` v1 is the fit.
-- **Not JUnit 5** for `users-api`. Spring Boot 1.5.6 is from 2017 and ships JUnit 4. Upgrading the framework is a separate, deliberate card.
+- **Do not rewrite `users-api` tests to JUnit 5 incidentally.** Spring Boot 1.5 previously constrained the service to its legacy JUnit 4 baseline. Spring Boot 3.5 does not require JUnit 4; the existing 26-test suite remains on JUnit 4 through JUnit Vintage to keep the framework and security migration focused and behaviour-preserving. Rewriting it to JUnit 5 is a separate, deliberate migration.
 
 ### 9.3 Conventions
 
