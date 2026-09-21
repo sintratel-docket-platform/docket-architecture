@@ -28,7 +28,7 @@ as further along than it is.
 
 | Check | Why |
 |---|---|
-| `dev` is `Synced` and `Healthy` in Argo CD, and its `todos-api`/`frontend` `Application`s report `1.2.0` (or newer) | The walkthrough opens there; a broken `dev` derails everything after it. This also decides which path section 6 takes — real `dev` if this checks out, `docket-local` otherwise |
+| `dev` is `Synced` and `Healthy` in Argo CD, and its `todos-api`/`frontend` `Application`s report `1.4.0` (or newer), the version that carries card 30's deadlines | The walkthrough opens there; a broken `dev` derails everything after it. This also decides which path section 6 takes — real `dev` if this checks out, `docket-local` otherwise |
 | The SonarQube Cloud org (`sintratel-docket-platform`) is reachable and all five services — `auth-api`, `users-api`, `todos-api`, `log-message-processor`, `frontend` — show a passed Quality Gate | All five carry the enforced `quality` job on `main` today (see section 3) |
 | The most recent Slack message in the alerts channel from card 21's controlled trigger test is still visible, or its screenshot is on hand | Section 7 shows it; Slack retention may have scrolled it out of easy reach |
 | If `dev` cannot be confirmed `Synced`/`Healthy`, `docket-local` builds cleanly from `main` in `docket-todos-api` and `docket-frontend` | Section 6's fallback path |
@@ -122,11 +122,11 @@ three environments, not three clusters.
 
 The client-visible capability the acceptance criteria ask for. Cards 28 and
 29 are merged into `main` in both `docket-todos-api` and `docket-frontend`,
-and `docket-gitops`'s `dev` kustomization already declares both services at
-`1.2.0`. Use whichever of the two paths below the section 0 check settled:
+and `docket-gitops`'s `dev` kustomization declares both services at
+`1.4.0`, which also carries card 30's deadlines (steps 7 to 10). Use whichever of the two paths below the section 0 check settled:
 
 **Preferred — real `dev`.** If `dev` is confirmed `Synced` and `Healthy`
-with both services at `1.2.0` or newer, run the steps below against
+with both services at `1.4.0` or newer, run the steps below against
 `https://dev.docket.<domain>` directly. This is the stronger demo: it's the
 actual deployed platform, not a workstation build.
 
@@ -148,6 +148,16 @@ not the running `dev` environment.
    separately) and filter by assignee: the task the first user created is
    visible — the point of card 29, and only possible because card 28
    replaced the old per-user-siloed storage with one shared board.
+7. Create a task with a deadline set a few days in the past. Its due-date
+   badge shows that date, and its compliance badge reads `Overdue`.
+8. Create a second task with a deadline set a few days from today, still
+   inside the coming week. Its compliance badge reads `Upcoming`.
+9. Filter the board by the `Overdue` compliance state; only the first task
+   remains. Reset the filter afterward.
+10. Click `Start` on the overdue task, then `Complete`. Its compliance
+    badge changes to `Completed`, whatever its deadline. This is card 30's
+    point: a finished task stops counting against the date that made it
+    late.
 
 If you ran this against real `dev`, see "Cleaning up demo data" below
 before ending the recording session.
@@ -295,9 +305,6 @@ finalizes it — this document does not assume a specific platform.
 
 ## What this demo does not claim
 
-- Card 30 (deadlines and compliance status) is one of card 36's own
-  dependencies and is still open; nothing here shows it, and the video
-  should not imply otherwise.
 - Whether real `dev` was actually `Synced` and `Healthy` at recording time
   is only known once section 0's check is run that day — this document was
   written without live cluster access to confirm it in advance. Section 6
