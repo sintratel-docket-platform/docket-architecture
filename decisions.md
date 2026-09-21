@@ -44,6 +44,7 @@ Statuses: **Accepted** · **Assumption** (taken in the absence of guidance to th
 | [021](#adr-021-security-controls-applied-and-the-ones-deferred-on-record) | Security controls applied, and the ones deferred on record | Implemented |
 | [022](#adr-022-level-2-and-3-gates-run-inside-the-promotion-pipeline-not-reactively) | Level 2 and 3 gates run inside the promotion pipeline, not reactively | Implemented |
 | [023](#adr-023-observability-cloudwatch-container-insights) | Observability: CloudWatch Container Insights | Accepted |
+| [024](#adr-024-users-api-framework-and-security-baseline-migration) | Users-api framework and security baseline migration | Implemented |
 
 ---
 
@@ -744,6 +745,64 @@ The add-on's workloads authenticate through **EKS Pod Identity** rather than the
 *Prometheus, Grafana and Loki, self-hosted in the cluster.* Not rejected as tooling — they remain a reasonable choice for a project without this one's constraints. Deferred here because the runtime and operational footprint they add is unnecessary for card 20's minimum acceptance criteria, given: the cluster is shared by three full environments on two worker nodes ([ADR-003](#adr-003-one-shared-cluster-with-three-namespaces), [ADR-004](#adr-004-compute-amazon-eks)); each namespace's resource quota already leaves little headroom beyond the application itself ([`environments.md`](environments.md#what-differs-between-environments)); the cluster's ephemeral lifecycle means an in-cluster time-series database loses its history on every destroy ([ADR-010](#adr-010-ephemeral-infrastructure-with-split-state)); and the project's credit-limited budget does not have room for the added compute or the engineering time a self-hosted stack's upkeep would take. If a later phase needs dashboards or retention CloudWatch cannot offer at a reasonable cost, this decision can be revisited without undoing anything recorded here.
 
 *Deploying a tracing backend for the existing Zipkin instrumentation now.* Card 20 asks for logs, metrics, health and visibility, not tracing. Wiring `ZIPKIN_URL` to a real backend is left for a card that asks for it.
+
+---
+
+## ADR-024 Users-api framework and security baseline migration
+
+**Status:** Implemented.
+
+**Context.** Card 49 replaces the unsupported framework and security baseline of `users-api` while preserving its existing behaviour and test suite. Spring Boot 1.5.6 had been unsupported since 2019. Card 9 took the compatible dependency patches available inside that old framework line, but could not remove the remaining findings without replacing the dependency graph. Card 49 originally recorded 17 CRITICAL findings; later changes on `main` expanded the CI gate to both HIGH and CRITICAL and recorded further temporary exceptions. By the time this migration replaced the graph, the service carried 51 CVE or GHSA exceptions. The migration therefore had to clear both severities without accepted exceptions while keeping the existing 26 tests and runtime behaviour intact.
+
+**Decision.** Move `users-api` to the following supported framework, build, runtime and security baseline:
+
+| Area | Decision |
+|---|---|
+| Framework and runtime | Spring Boot 3.5.16 on Java 17, with Spring Framework 6.2.19, Spring Security 6.5.11 and Hibernate ORM 6.6.53.Final |
+| Build | Maven Wrapper distribution 3.9.16 with wrapper script 3.3.4; CI runs Java 17 and `./mvnw -B clean verify` |
+| Persistence and servlet APIs | Migrate `javax` servlet and persistence APIs to Jakarta APIs; use H2 2.3.232 with Hibernate 6 |
+| Security configuration | Replace `WebSecurityConfigurerAdapter` with ordered `SecurityFilterChain` beans; explicitly disable Boot's generated in-memory default user because authentication is performed by the service's JWT filter |
+| JWT | Use JJWT 0.13.0, restrict verification to HS256, and require the shared `JWT_SECRET` to contain at least 32 UTF-8 bytes |
+| Tracing | Replace Spring Cloud Sleuth with Micrometer Tracing, Brave and Zipkin Reporter |
+| Tests and coverage | Keep the existing JUnit 4 suite running through JUnit Vintage 5.12.2; use JaCoCo 0.8.12 |
+| Container | Build and run on Java 17 images pinned by digest; run the application as UID 10001 |
+| CI security gate | Preserve SonarQube analysis and its blocking quality gate; pin Trivy 0.74.0; fail on HIGH or CRITICAL findings; scan with no accepted vulnerability exceptions |
+
+Embedded Tomcat is temporarily overridden from Spring Boot 3.5.16's managed 10.1.55 to 10.1.59. Trivy reported three CRITICAL findings against 10.1.55 and identified 10.1.58 as fixed, but 10.1.58 was unavailable from Maven Central. Version 10.1.59 was the smallest available version verified to contain the fixes, and every embedded Tomcat module resolves consistently to it. Remove the override when the selected Spring Boot version manages an equal or newer Tomcat version that passes the same scan.
+
+**Verification evidence.** The migrated service produced all of the following results:
+
+- 26 tests, with 0 failures, 0 errors and 0 skipped; JaCoCo line coverage was approximately 85.3%.
+- `GET /health` returned HTTP 200 with `{"status":"ok"}`. A protected route without a JWT was rejected with the inherited HTTP 500 behaviour. A valid synthetic HS256 token was accepted, while a correctly signed synthetic HS512 token was rejected.
+- `GET /actuator/health` returned HTTP 404, no generated default password appeared, and logs contained no token or secret material.
+- The runtime-tested and scanned image had the same final image ID: `sha256:f9d843c1deca62acc11561200db573cbff52c4741b037ae2c287cabad1a67ac4`.
+- Trivy 0.74.0 reported 0 OS HIGH, 0 Java HIGH, 0 OS CRITICAL and 0 Java CRITICAL findings. The scan used `.trivyignore.yaml`, whose complete content was `vulnerabilities: []`.
+- All 51 former CVE or GHSA exceptions were removed; no accepted vulnerability exception remains.
+
+**Consequences.**
+
+- The service and its build now require Java 17, and integrations with servlet or persistence APIs use the Jakarta namespaces.
+- Security is expressed through ordered `SecurityFilterChain` beans rather than the removed adapter API, while the JWT filter remains the authentication mechanism.
+- Deployments require the shared `JWT_SECRET` to contain at least 32 UTF-8 bytes. The deployed value's length has not yet been externally confirmed, so deployment readiness still depends on that external check.
+- The explicit Tomcat override is maintenance debt and has a defined removal condition: the selected Spring Boot release must manage an equal or newer version that passes the same Trivy gate.
+- JUnit Vintage remains while the existing JUnit 4 tests are preserved. Spring Boot 3.5 does not require JUnit 4; moving the suite to JUnit 5 is a separate test-framework migration.
+- Keeping the service on a supported baseline now requires regular Spring Boot and dependency patch maintenance rather than another long-lived patch ceiling.
+
+**Known out-of-scope technical debt.**
+
+- Invalid JWT requests retain the inherited HTTP 500 response behaviour; this migration did not correct it.
+- `UserRepository` uses `Long` while the `User` identifier is `String`.
+- The deployed `JWT_SECRET` length remains to be confirmed externally without reading or recording the secret value.
+
+**Rejected alternatives.**
+
+*Staying on Spring Boot 1.5.6.* Card 9 had already reached the compatible patch ceiling. The framework had been unsupported since 2019, and keeping it would retain a dependency graph that could not satisfy the HIGH and CRITICAL gate without exceptions.
+
+*Migrating only to Spring Boot 2.7.18.* This would reduce the immediate migration distance but establish another obsolete framework line as the new baseline, postponing the Java 17, Jakarta and Spring Security 6 migration rather than completing it.
+
+*Preserving Spring Cloud Sleuth.* Sleuth does not provide the supported tracing path for the selected Spring Boot baseline. Micrometer Tracing with Brave and Zipkin Reporter preserves the tracing model on supported components.
+
+*Rewriting all tests to JUnit 5 in the same security migration.* Spring Boot 3.5 supports JUnit 5, but combining a test-framework rewrite with the dependency and security migration would make behaviour preservation harder to demonstrate. JUnit Vintage runs the existing 26 JUnit 4 tests unchanged; a JUnit 5 rewrite remains separate work.
 
 ---
 
