@@ -4,15 +4,29 @@ Architecture documentation for **Docket**, the task management platform for a le
 
 This repository is the documentation deliverable of the project. It holds the reference architecture the platform is built towards and the record of the decisions supporting it. It is the source from which the infrastructure-as-code work, the pipeline design and the platform operation derive.
 
+## Start here
+
+New to the project? [`project-walkthrough.md`](project-walkthrough.md) is the
+narrative: the client's problem, what was built area by area, results with
+evidence, limitations and a suggested reading order.
+[`documentation-map.md`](documentation-map.md) is the index into every
+document of every repository, organised by area.
+
 ## Documents
 
 | Document | Contents | Status |
 |---|---|---|
+| [`project-walkthrough.md`](project-walkthrough.md) | The final presentation: the client's problem, what was built, results, limitations and coverage against the course brief. | Current |
 | [`logical-architecture.md`](logical-architecture.md) | Logical architecture: the five microservices, the message queue, the call graph and the supporting platform. | Components verified against the code |
-| [`environments.md`](environments.md) | Deployment per environment: namespaces, boundaries between `dev`, `staging` and `prod`, GitOps flow, secrets and DNS. | Target |
-| [`aws-infrastructure.md`](aws-infrastructure.md) | Physical layer on AWS: budget, multi-AZ network, EKS, registry, state backend, identity and secrets. | Target |
+| [`environments.md`](environments.md) | Deployment per environment: namespaces, boundaries between `dev`, `staging` and `prod`, GitOps flow, secrets and DNS. | Current, describes what is deployed |
+| [`aws-infrastructure.md`](aws-infrastructure.md) | Physical layer on AWS: budget, multi-AZ network, EKS, registry, state backend, identity and secrets. | Current, describes what is deployed |
+| [`pipelines.md`](pipelines.md) | The ten pipelines, how they connect, the test pyramid and the promotion gate table. | Current |
+| [`testing-strategy.md`](testing-strategy.md) | The three test levels, where and when each runs, current counts per service. | Current |
 | [`decisions.md`](decisions.md) | Decision record (ADR) with context, consequences and rejected alternatives. | Current |
-| [`documentation-map.md`](documentation-map.md) | Index of every project document across the five repositories, and which of the nine areas each answers. | Current |
+| [`project-retrospective.md`](project-retrospective.md) | ADRs grouped by theme, current limitations consolidated from four repositories, and a ranked improvement list. | Current |
+| [`demo-runbook.md`](demo-runbook.md) | The technical demo script: order, commands, expected screens, timing and fallback plan. | Current |
+| [`documentation-map.md`](documentation-map.md) | Index of every project document across the thirteen repositories, and which of the nine areas each answers. | Current |
+| [`standards/`](standards/README.md) | The canonical engineering constitution, the long-form Terraform standard, the distributed templates and the branch-protection record. | Current |
 
 ## How to read this documentation
 
