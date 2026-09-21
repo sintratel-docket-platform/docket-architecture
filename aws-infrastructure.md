@@ -157,6 +157,16 @@ The parameter tree is segmented by environment (`/docket/dev/...`, `/docket/stag
 
 Parameters are written with the write-only argument `value_wo`, so the value never reaches Terraform state or the plan file.
 
+## Observability and alerts
+
+CloudWatch Container Insights runs as the `amazon-cloudwatch-observability` EKS add-on and
+collects metrics and container logs from every pod
+([ADR-023](decisions.md#adr-023-observability-cloudwatch-container-insights)). CloudWatch
+alarms on container restarts, CPU and memory per service and environment, and on the
+application error rate, publish to an SNS topic. A Lambda function formats each alarm and
+posts it to the Slack alerts channel, reading the webhook from Parameter Store when it runs.
+All of it belongs to the ephemeral stack, so it is created and destroyed with the cluster.
+
 ## Infrastructure change flow
 
 1. A push to the infrastructure repository triggers GitHub Actions.

@@ -4,7 +4,7 @@
 |---|---|
 | **Purpose** | Describe which pieces make up Docket and how they talk to each other, without going into where each one runs. |
 | **Audience** | The whole team. It is the entry point for understanding the system without reading the code. |
-| **Status** | The components and their dependencies are verified against the `microservice-app-example` code. The supporting platform (registry, pipelines, observability) describes the target. |
+| **Status** | The components and their dependencies are verified against the `microservice-app-example` code. The supporting platform (registry, pipelines, CloudWatch observability) is deployed as described. |
 
 Where each thing runs is in [`environments.md`](environments.md) and [`aws-infrastructure.md`](aws-infrastructure.md).
 
@@ -35,7 +35,7 @@ The browser posts to `/login`, and the `HTTPRoute` sends that prefix to Auth API
 
 The browser sends the user JWT to `/todos`, and the `HTTPRoute` sends that prefix to Todos API. Todos API validates the token with the same secret Auth API signed it with.
 
-**Users API is not exposed.** The `HTTPRoute` declares three matches, `/login` to Auth API, `/todos` to Todos API and `/` to the Frontend. Users API appears in none of them, so its only client is the traffic that reaches it inside the namespace, from Auth API and from Todos API.
+**Users API is not exposed.** The `HTTPRoute` declares three matches, `/login` to Auth API, `/todos` to Todos API and `/` to the Frontend. Users API appears in none of them, so its only client is the traffic that reaches it inside the namespace, from Auth API.
 
 ### Asynchronous logging
 

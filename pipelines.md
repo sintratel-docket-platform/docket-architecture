@@ -147,7 +147,7 @@ shared action once all five work.
 
 The diagram fixes five decisions.
 
-**Trivy scans the image while it is still on the runner.** A critical finding stops the
+**Trivy scans the image while it is still on the runner.** A HIGH or CRITICAL finding stops the
 run before the image reaches ECR. The registry's own scan happens after publication, when
 the vulnerable image is already available to deploy.
 
@@ -286,8 +286,9 @@ promotion merges. The first staging promotion moved four services from `sha-` ta
 
 ![Cluster lifecycle](img/pipeline-cluster-lifecycle.png)
 
-The only pipeline with write credentials on AWS. The diagram documents behaviour already
-in production.
+The only pipeline that changes the AWS infrastructure. The diagram documents behaviour
+already in production. The start branch ends by restoring production to the release the
+`production` tag names, and never to anything newer (ADR-018).
 
 The shutdown branch is where the ordering matters. The workflow talks to the Kubernetes
 API **before** Terraform destroys anything, because load balancers, DNS records and volumes
@@ -313,13 +314,12 @@ It also shows why the exposure scan runs first in `module-ci`. The module reposi
 public and so is its Git history, so clearing an account identifier committed by mistake
 requires rewriting history.
 
-**What the diagram does not show is an automated bump.** ADR-012 and ADR-013 both describe
-Renovate opening the pull request that moves a stack's pinned `?ref=`. Renovate is
-installed organisation wide and has never opened one; every bump in
-`docket-infrastructure` so far was opened by a person. Card 52 holds the investigation.
-The gates that run on that pull request are the same either way, so the control the
-diagram describes is intact; what is missing is the automation that would notice a release
-exists.
+**The diagram shows the bump both ways.** ADR-012 and ADR-013 both describe Renovate
+opening the pull request that moves a stack's pinned `?ref=`. Renovate is installed
+organisation wide and has never opened one, so every bump in `docket-infrastructure` so far
+was opened by a person, the path the diagram marks as today. Card 52 holds the
+investigation. The gates that run on that pull request are the same either way; what is
+missing is the automation that would notice a release exists.
 
 ## Sequence 5. Verifying a version before it is promoted
 
@@ -359,13 +359,15 @@ The deliverables document asks for documented rollback plans. In GitOps the proc
 a counterintuitive property, and the diagram shows both paths so the working one is
 unambiguous.
 
-**Rolling back from the Argo CD interface fails here.** Argo CD reapplies the previous
-manifests while Git still declares the broken version, so the next reconciliation with
-self heal enabled restores the broken version. The tool undoes its own rollback.
+The procedure starts from a CloudWatch alarm posted to the Slack alerts channel (card 21).
 
-The rollback is a `git revert` in `docket-gitops`, reviewed like any other change,
-followed by a sync. It costs about a minute more, it leaves Git and the cluster in
-agreement, and it records what was reverted and by whom.
+**Rolling back from the Argo CD interface fails here.** Argo CD reapplies the previous
+manifests while Git and the `production` tag still declare the broken version, so the next
+sync, or the restore on the next cluster start, brings the broken version back.
+
+The rollback is a `git revert` in `docket-gitops`, approved like any other production
+change, followed by a sync and its record. It costs a few minutes more, it leaves Git, the
+cluster and the restore tag in agreement, and it records what was reverted and by whom.
 
 ## The four gate pipelines
 
