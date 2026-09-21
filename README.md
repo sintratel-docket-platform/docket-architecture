@@ -71,3 +71,9 @@ These conditions determine [ADR-002](decisions.md#adr-002-secrets-with-external-
 The PNGs in `img/` are the published version and travel with the repository. The editable source of each diagram lives in the tool indicated. When a diagram changes, the PNG must be re-exported under the same file name so the documents embedding it keep resolving.
 
 **A diagram is documentation and goes stale the same way.** All nine were redrawn on 16 September 2026 after a review found every one of them describing a state the platform had left behind: Ingress after the move to the Gateway API, one load balancer after production got its own, SonarQube and Prometheus as if they were deployed, Renovate opening a pull request it has never opened, and the AWS view still labelled in Spanish. None of the four changes responsible carried its diagram along, because the editable source lives outside the repository and never enters a pull request. A change that alters what a diagram shows is not finished until the PNG is re-exported.
+
+## Contributing
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) is the short, repository-local form of
+[`standards/AGENTS.md`](standards/AGENTS.md), which is normative. Pull
+requests follow [`.github/pull_request_template.md`](.github/pull_request_template.md).

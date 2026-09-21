@@ -1,6 +1,6 @@
 # Contributing
 
-Copy this file into the root of every repository. It is the short, repository-local form of [`AGENTS.md`](AGENTS.md), which is normative.
+Copy this file into the root of every repository. It is the short, repository-local form of [`AGENTS.md`](https://github.com/sintratel-docket-platform/docket-architecture/blob/main/standards/AGENTS.md), which is normative.
 
 ## Language
 
@@ -98,7 +98,7 @@ Rules:
 
 ## Working with AI agents
 
-Agents operating in these repositories follow [`AGENTS.md`](AGENTS.md). The rules that matter most for reviewers:
+Agents operating in these repositories follow [`AGENTS.md`](https://github.com/sintratel-docket-platform/docket-architecture/blob/main/standards/AGENTS.md). The rules that matter most for reviewers:
 
 - **The agent plans; a human applies.** No `terraform apply`, `terraform destroy`, or `kubectl apply` against real infrastructure.
 - **Publishing requires authorisation** each time — push, PR, release, repository creation.
