@@ -175,7 +175,7 @@ stated gap; missing means nothing exists yet.
 
 | Deliverable | Status | Where |
 |---|---|---|
-| Architecture with diagrams | Partial | [`logical-architecture.md`](logical-architecture.md), [`environments.md`](environments.md), [`aws-infrastructure.md`](aws-infrastructure.md); the nine diagrams were redrawn 16 September 2026 and do not yet show SonarQube or CloudWatch, both added afterward |
+| Architecture with diagrams | Complete | [`logical-architecture.md`](logical-architecture.md), [`environments.md`](environments.md), [`aws-infrastructure.md`](aws-infrastructure.md), [`pipelines.md`](pipelines.md); the nine diagrams were redrawn and re-exported on 21 September 2026 against the platform as it runs |
 | Agile methodology | Complete | [`AGENTS.md`](standards/AGENTS.md) §4 to §6, `docket-roadmap` |
 | Sprint and iteration records | Complete | `docket-roadmap/iterations/`, two recorded iterations |
 | User stories and acceptance criteria | Complete | `docket-roadmap/stories/`, one file per board card; cards 49, 50, 52 and 53 are added by `docket-roadmap` #54 (there is no card 51) |
