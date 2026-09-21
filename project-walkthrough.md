@@ -74,9 +74,9 @@ and production needs a recorded approval and a manual sync
 [`environments.md`](environments.md), [`pipelines.md`](pipelines.md).
 
 **05. Testing.** Three levels: L1 unit and L2 integration inside each
-service's own pipeline (147 tests across the five services, all five carrying
-both levels), L3 end to end in Playwright against a deployed environment,
-living in `docket-gitops/e2e`. All three gate promotion; none is informational
+service's own pipeline, all five services carrying both levels, and L3 end to
+end in Playwright against a deployed environment, seven scenarios living in
+`docket-gitops/e2e`. All three gate promotion; none is informational
 only. [`testing-strategy.md`](testing-strategy.md), [`AGENTS.md`](standards/AGENTS.md)
 section 9.
 
@@ -146,7 +146,7 @@ exist yet; [`demo-runbook.md`](demo-runbook.md) is its script.
 | Task board, assignment and deadlines built, deployed to development and staging | `docket-todos-api` and `docket-frontend` pull requests for cards #28, #29, #30, merged 20 to 21 September 2026; `environments/development` and `environments/staging` kustomizations pin `1.4.0` for `frontend` and `todos-api`. Production promotion waiting on private-repository Actions minutes |
 | Terraform modules versioned and tested | `docket-terraform-modules` tags through `v3.3.0`. Card [#46](https://github.com/sintratel-docket-platform/docket-roadmap/issues/46), done |
 | Infrastructure costs estimated | Card [#33](https://github.com/sintratel-docket-platform/docket-roadmap/issues/33), in review. `docket-infrastructure/docs/infrastructure-costs.md` |
-| L1 and L2 test counts | 147 tests across the five services (`auth-api` 19/14, `users-api` 13/11, `todos-api` 14/12, `log-message-processor` 13/7, `frontend` 37/7). [`testing-strategy.md`](testing-strategy.md) |
+| Automated tests at three levels | L1 and L2 suites in all five services, run by each service's `service-ci` on every pull request; the L3 suite, seven Playwright scenarios in `docket-gitops/e2e`, gates every promotion. Per-service counts in [`testing-strategy.md`](testing-strategy.md) date from 16 September; `todos-api` and `frontend` grew with card #30 |
 
 ## 4. Limitations and what comes next
 
