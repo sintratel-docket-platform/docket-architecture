@@ -154,9 +154,8 @@ The full, current list is [`project-retrospective.md`](project-retrospective.md)
 checked against the repositories and the board on 21 September 2026. What
 matters most today:
 
-1. **Three IAM administrators hold standing `AdministratorAccess`, with no
-   multi-factor authentication on any of them.** The single highest-impact gap
-   on the list.
+1. **Three IAM users hold standing `AdministratorAccess`.** The single
+   highest-impact gap on the list.
 2. **Production approval is enforced by process, not by GitHub, on the ten
    private repositories.** The three public repositories now have branch
    protection; the private ones cannot on the current plan (card #39).
@@ -179,7 +178,7 @@ stated gap; missing means nothing exists yet.
 | Architecture with diagrams | Partial | [`logical-architecture.md`](logical-architecture.md), [`environments.md`](environments.md), [`aws-infrastructure.md`](aws-infrastructure.md); the nine diagrams were redrawn 16 September 2026 and do not yet show SonarQube or CloudWatch, both added afterward |
 | Agile methodology | Complete | [`AGENTS.md`](standards/AGENTS.md) §4 to §6, `docket-roadmap` |
 | Sprint and iteration records | Complete | `docket-roadmap/iterations/`, two recorded iterations |
-| User stories and acceptance criteria | Partial | `docket-roadmap/stories/`, one file per card; cards 49 to 53 are being added by this same card (#37) |
+| User stories and acceptance criteria | Complete | `docket-roadmap/stories/`, one file per board card; cards 49, 50, 52 and 53 are added by `docket-roadmap` #54 (there is no card 51) |
 | Branching strategy | Complete | [`AGENTS.md`](standards/AGENTS.md) §4 |
 | Design patterns | Missing | No document exists; the brief asks for three additional patterns, none implemented as a named pattern either |
 | Operations and maintenance guide | Complete | `docket-gitops/docs/operations-manual.md`, `docket-infrastructure/OPERATIONS.md`, `docket-infrastructure/GETTING-STARTED.md` |
@@ -193,9 +192,9 @@ stated gap; missing means nothing exists yet.
 | Lessons learned | Complete | [`project-retrospective.md`](project-retrospective.md) |
 | Final presentation | Complete | This document |
 | Demonstration video | Missing | Card #36, in backlog |
-| Penetration test | Missing | No card; recorded as an accepted risk |
+| Penetration test | Missing | Taken on by EstebanGZam, with no card yet; recorded as an accepted risk until it is done |
 | Monitoring stack (Prometheus and Grafana in the brief) | Delivered differently | Replaced by CloudWatch Container Insights, [ADR-023](decisions.md#adr-023-observability-cloudwatch-container-insights) |
-| Distributed tracing (Zipkin) | Partial | Instrumented in `auth-api`, no backend deployed |
+| Distributed tracing (Zipkin) | Partial | The services carry Zipkin instrumentation; no Zipkin backend is deployed |
 
 ## 6. A suggested order for the walkthrough
 
