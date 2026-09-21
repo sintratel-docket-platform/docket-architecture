@@ -18,7 +18,7 @@ The reference architecture and the decisions behind it.
 | [`aws-infrastructure.md`](aws-infrastructure.md) | Network, EKS, registry, state backend, identity, secrets, budget | 02, 08, 09 |
 | [`pipelines.md`](pipelines.md) | The ten pipelines, how they connect, the test pyramid, six sequence diagrams and the gate table | 04, 05, 06, 09 |
 | [`testing-strategy.md`](testing-strategy.md) | The three test levels, where and when each runs, what makes it pass, current counts per service | 05, 09 |
-| [`decisions.md`](decisions.md) | 22 ADRs with context, consequences and rejected alternatives | 09 |
+| [`decisions.md`](decisions.md) | 25 ADRs with context, consequences and rejected alternatives | 09 |
 | [`project-retrospective.md`](project-retrospective.md) | The ADRs grouped by theme, current limitations consolidated from four repositories, and a ranked list of future improvements | 09 |
 | [`demo-runbook.md`](demo-runbook.md) | The technical demo script: order, commands, expected screens, timing, fallback plan, and what it does not claim | 09 |
 
@@ -31,6 +31,7 @@ The canonical source every repository distributes from.
 | [`standards/AGENTS.md`](standards/AGENTS.md) | The engineering constitution: language, branching, Conventional Commits, pull requests, Terraform, GitOps, testing, security, definition of done | 01, 02, 05, 08 |
 | [`standards/terraform-iac-best-practices.md`](standards/terraform-iac-best-practices.md) | The long-form Terraform standard with rationale and sources | 02 |
 | [`standards/templates/`](standards/templates/) | The files distributed to each repository: CI workflows, linter and scanner configuration, OPA policy, PR template, CODEOWNERS | 01, 02, 04 |
+| [`standards/branch-protection.md`](standards/branch-protection.md) | The state of branch protection per repository, the justification for each open gap, and the ready-to-run commands that close them | 01, 08 |
 
 ### `docket-infrastructure` — infrastructure as code
 

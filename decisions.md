@@ -45,6 +45,7 @@ Statuses: **Accepted** · **Assumption** (taken in the absence of guidance to th
 | [022](#adr-022-level-2-and-3-gates-run-inside-the-promotion-pipeline-not-reactively) | Level 2 and 3 gates run inside the promotion pipeline, not reactively | Implemented |
 | [023](#adr-023-observability-cloudwatch-container-insights) | Observability: CloudWatch Container Insights | Accepted |
 | [024](#adr-024-users-api-framework-and-security-baseline-migration) | Users-api framework and security baseline migration | Implemented |
+| [025](#adr-025-branch-protection-within-the-free-plan) | Branch protection within the Free plan | Implemented |
 
 ---
 
@@ -803,6 +804,45 @@ Embedded Tomcat is temporarily overridden from Spring Boot 3.5.16's managed 10.1
 *Preserving Spring Cloud Sleuth.* Sleuth does not provide the supported tracing path for the selected Spring Boot baseline. Micrometer Tracing with Brave and Zipkin Reporter preserves the tracing model on supported components.
 
 *Rewriting all tests to JUnit 5 in the same security migration.* Spring Boot 3.5 supports JUnit 5, but combining a test-framework rewrite with the dependency and security migration would make behaviour preservation harder to demonstrate. JUnit Vintage runs the existing 26 JUnit 4 tests unchanged; a JUnit 5 rewrite remains separate work.
+
+---
+
+## ADR-025 Branch protection within the Free plan
+
+**Status:** Implemented.
+
+**Context.** Card 39 asks that branch protection and mandatory review be enforced wherever the current GitHub plan allows it. The organisation runs on GitHub's Free plan. `GET /repos/{org}/{repo}/branches/main/protection` on a private repository answers 403 "Upgrade to GitHub Pro or make this repository public to enable this feature", and `GET /orgs/{org}/rulesets` answers 403 "Upgrade to GitHub Team to enable this feature". Branch protection and organisation rulesets are unavailable for the ten private repositories and for any organisation-wide rule on the plan the team holds today. Two of the four public repositories, `docket-architecture` and `docket-terraform-modules`, already carried partial protection; `.github` carried none; the fourth, `microservice-app-example`, is the 2023 upstream fork the services were built from and stays out of scope by the team lead's decision of 21 September 2026. Since the constitution was adopted on 7 September 2026, the absence of enforcement has been observable rather than hypothetical. Of 217 pull requests merged across the twelve team repositories, 207 merged with no approval, and work has also reached `main` of a private repository with no pull request at all, the `users-api` migration of card 49 (commits `1b3f2b6` and `37d7920`, 20 September 2026) among them. The two `AGENTS.md` redistributions of 14 and 21 September also reached `main` directly, at the team lead's request, and the `docket-terraform-modules` protection applied by this card logged the administrator bypass that a documentation-only pull request needed there. [ADR-016](#adr-016-production-approval-without-branch-protection) already records that `docket-gitops` cannot be protected for the same reason and moved its approval enforcement to a pre-merge check, a post-merge audit and a sync record instead; [ADR-020](#adr-020-independent-approval-as-a-policy-parameter) amended that check's independence rule. This decision extends the same reasoning to every repository the team writes to.
+
+**Decision.** Apply every rule the Free plan allows to the three public repositories the team writes to, and record the rest as an accepted limitation with the commands ready for when the plan changes.
+
+| Repository | Pull request, 1 approval | Code Owner review | Required checks, strict | Stale approvals dismissed | Linear history | Force pushes and deletions blocked | Administrators included |
+|---|---|---|---|---|---|---|---|
+| `docket-architecture` | Yes | Yes | The three convention checks | Yes | Yes | Yes | No |
+| `docket-terraform-modules` | Yes | Yes | `Module tests` plus the three convention checks | Yes | Yes | Yes | No |
+| `.github` | Yes | Yes | The title and branch convention checks | Yes | Yes | Yes | No |
+| `microservice-app-example` (fork) | No | No | None | No | No | No | No |
+| The ten private repositories | Refused by the plan | Refused by the plan | Refused by the plan | Refused by the plan | Refused by the plan | Refused by the plan | Refused by the plan |
+
+The private repositories stay private because they carry the account identifier, the domain and open security findings that `docket-architecture` and `docket-terraform-modules` must never hold, so making them public to gain protection would trade one risk for a worse one. `microservice-app-example` stays unprotected and untouched, kept as a read-only reference nobody commits to; the command that would archive it, and make it read-only without protection, is recorded in [`standards/branch-protection.md`](standards/branch-protection.md) rather than run here. Administrators are not included in any of the three protected repositories, because the team lead merges most pull requests and including administrators would block a merge whenever no second reviewer is available, the situation both `AGENTS.md` redistributions were in. GitHub logs that bypass on every merge it covers.
+
+The three convention checks (`PR title is a Conventional Commit`, `Branch name and language`, `AGENTS.md matches the canonical copy`) run on every pull request in all fourteen repositories whether or not they are required, and detect a violation where nothing prevents one. In `docket-gitops`, `production-approval` audits every production change and `production-sync-record` records every sync, per [ADR-016](#adr-016-production-approval-without-branch-protection) and [ADR-020](#adr-020-independent-approval-as-a-policy-parameter).
+
+**Consequences.**
+- The three public repositories now require a pull request, one approval, Code Owner review, stale-approval dismissal, linear history and blocked force pushes and deletions; `docket-architecture` and `docket-terraform-modules` also require the convention checks they previously lacked, and `.github` gained protection outright.
+- The ten private repositories carry none of these guarantees. A member with write access can push to their `main` directly, and 207 of 217 merged pull requests already did so without review.
+- Path-filtered workflows (`service-ci`, `terraform-ci` and `gitops-ci` in the private repositories, `module-ci` in `docket-terraform-modules`) cannot be required as they stand. A pull request that does not touch their paths waits for a check that never reports. `docket-terraform-modules` already requires `Module tests` this way, and a documentation-only pull request there waited for an administrator to merge it, as `docket-terraform-modules` #12 did on 21 September 2026.
+- `microservice-app-example` keeps all three merge strategies and no protection, unchanged from its upstream state.
+- A plan change is the single prerequisite for closing the private-repository gap; the commands to apply it are recorded and ready to run, and depend on no other decision.
+
+**Rejected alternatives.**
+
+*Making every repository public.* It would grant every repository branch protection on the Free plan, but the private repositories carry the account identifier, the domain and open security findings that must not become public, and a repository's Git history is public from the moment it is, which cannot be undone.
+
+*Upgrading to GitHub Team now.* It would enable branch protection on the private repositories and organisation rulesets in one step, but the plan's cost is a budget decision the team is discussing separately from this card, not one this record makes for them.
+
+*Including administrators in the public repositories' protection.* It would close the one gap that lets a single available person merge, but it would also block every merge that has nobody else to review it, including the `AGENTS.md` redistributions the team lead has twice needed to push straight to `main`.
+
+**When to revisit.** A change to the organisation's GitHub plan, or any private repository becoming public, whichever comes first. Either reopens the ten-repository gap this record already carries the commands for.
 
 ---
 
