@@ -5,6 +5,11 @@
 #
 # Pairs with branch protection: "Require review from Code Owners".
 # The goal is that no PR can be self-approved (AGENTS.md §6).
+#
+# The @sintratel-docket-platform/platform and .../leads teams below are
+# placeholders: this organisation has no such teams. Replace every occurrence
+# with the members' handles, as docket-architecture and docket-terraform-modules
+# already do.
 
 # ---------------------------------------------------------------------------
 # Default: any change needs a platform reviewer
