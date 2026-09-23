@@ -6,6 +6,15 @@ repositories, with every claim linked to something a reviewer can open and
 check. Written for someone who has not seen the project before and wants to
 follow it without a guide.
 
+**State at delivery.** The AWS account that hosted the platform ran on the AWS
+free credit plan, and it ended with the credits on 22 September 2026. Nothing
+runs now. The cluster, the registry and its images, the Terraform state, the
+secrets and the DNS zone ended with the account, so no endpoint answers and no
+environment can be visited. Everything below describes what was built and links
+to the record that outlives it, in Git and on the board.
+[`docket-infrastructure/docs/rebuilding-in-a-new-account.md`](https://github.com/sintratel-docket-platform/docket-infrastructure/blob/main/docs/rebuilding-in-a-new-account.md)
+covers what a rebuild in a new account needs.
+
 ## 1. The client's problem and what Docket is
 
 SINTRATEL, the course's client brief, asks for a task management platform for
@@ -133,6 +142,9 @@ exist yet; [`demo-runbook.md`](demo-runbook.md) is its script.
 
 ## 3. Results and evidence
 
+Each row links a pull request, a card, a tag or a document rather than a running
+endpoint, so every claim stays checkable now that the environment is gone.
+
 | Result | Evidence |
 |---|---|
 | First controlled release to production | Card [#27](https://github.com/sintratel-docket-platform/docket-roadmap/issues/27), done. `docket-gitops` pull request [#32](https://github.com/sintratel-docket-platform/docket-gitops/pull/32) (15 September 2026) |
@@ -150,21 +162,24 @@ exist yet; [`demo-runbook.md`](demo-runbook.md) is its script.
 
 ## 4. Limitations and what comes next
 
-The full, current list is [`project-retrospective.md`](project-retrospective.md),
-checked against the repositories and the board on 21 September 2026. What
-matters most today:
+The full list is [`project-retrospective.md`](project-retrospective.md), checked
+against the repositories and the board on 21 September 2026, and it describes
+the platform as it last ran. What matters most:
 
-1. **Three IAM users hold standing `AdministratorAccess`.** The single
-   highest-impact gap on the list.
-2. **Production approval is enforced by process, not by GitHub, on the ten
-   private repositories.** The three public repositories now have branch
+1. **The platform no longer runs.** Its AWS account ended with its free credits
+   on 22 September 2026. Bringing it back means a new account and the values
+   tied to the old one, which
+   [`docket-infrastructure/docs/rebuilding-in-a-new-account.md`](https://github.com/sintratel-docket-platform/docket-infrastructure/blob/main/docs/rebuilding-in-a-new-account.md)
+   lists. The code, the manifests, the pipelines and the record of what ran are
+   unaffected.
+2. **Production approval was enforced by process, not by GitHub, on the ten
+   private repositories.** The three public repositories have branch
    protection; the private ones cannot on the current plan (card #39).
-3. **Nothing validates a JWT secret's length before a deployment.** This is
-   not hypothetical: production's `jwt-secret` was too short after the
-   21 September sync, and every login failed until it is rotated, caught only
-   because someone tried to log in.
+3. **Nothing validates a JWT secret's length before a deployment.** Production's
+   `jwt-secret` was too short after the 21 September sync and every login
+   failed until it was rotated, caught only because someone tried to log in.
 4. **`todos-api` stores its data in memory.** A restart loses every task.
-5. **Argo CD is reached through one shared account.** A sync names no
+5. **Argo CD was reached through one shared account.** A sync named no
    individual; card #19 recorded this without closing it.
 
 ## 5. Coverage against the brief
@@ -175,7 +190,7 @@ stated gap; missing means nothing exists yet.
 
 | Deliverable | Status | Where |
 |---|---|---|
-| Architecture with diagrams | Complete | [`logical-architecture.md`](logical-architecture.md), [`environments.md`](environments.md), [`aws-infrastructure.md`](aws-infrastructure.md), [`pipelines.md`](pipelines.md); the nine diagrams were redrawn and re-exported on 21 September 2026 against the platform as it runs |
+| Architecture with diagrams | Complete | [`logical-architecture.md`](logical-architecture.md), [`environments.md`](environments.md), [`aws-infrastructure.md`](aws-infrastructure.md), [`pipelines.md`](pipelines.md); the nine diagrams were redrawn and re-exported on 21 September 2026 against the platform as it ran |
 | Agile methodology | Complete | [`AGENTS.md`](standards/AGENTS.md) §4 to §6, `docket-roadmap` |
 | Sprint and iteration records | Complete | `docket-roadmap/iterations/`, two recorded iterations |
 | User stories and acceptance criteria | Complete | `docket-roadmap/stories/`, one file per board card; cards 49, 50, 52 and 53 are added by `docket-roadmap` #54 (there is no card 51) |
@@ -198,8 +213,8 @@ stated gap; missing means nothing exists yet.
 
 ## 6. A suggested order for the walkthrough
 
-Aligned with [`demo-runbook.md`](demo-runbook.md), which orders the live demo
-the same way.
+Aligned with [`demo-runbook.md`](demo-runbook.md), which ordered the live demo
+the same way while the environment ran.
 
 1. The organisation profile, `.github/profile/README.md`, for the one-line
    orientation and the link back here.
@@ -215,5 +230,8 @@ the same way.
    [`decisions.md`](decisions.md)'s security-themed ADRs.
 7. `docket-infrastructure/docs/operational-alerts.md` for observability.
 8. `docket-roadmap`, for the board, the stories and the iterations.
-9. [`project-retrospective.md`](project-retrospective.md), for the limitations
-   and what comes next, last, since it presumes everything above it.
+9. [`docket-roadmap/iterations/iteration-03.md`](https://github.com/sintratel-docket-platform/docket-roadmap/blob/main/iterations/iteration-03.md),
+   for what the last iteration committed to, what shipped and how the
+   environment ended.
+10. [`project-retrospective.md`](project-retrospective.md), for the limitations
+    and what comes next, last, since it presumes everything above it.
