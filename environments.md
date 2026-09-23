@@ -18,9 +18,49 @@ Alongside the application, running inside the cluster:
 | **External Secrets Operator** | Materialises the parameters it reads from SSM Parameter Store as Kubernetes `Secret` objects, per namespace |
 | **AWS Load Balancer Controller** | Translates a `Gateway` and its `HTTPRoute`s into ALB configuration ([ADR-017](decisions.md#adr-017-exposure-through-the-gateway-api)) |
 | **Health endpoints and probes** | Every service answers an unauthenticated `GET /health`, except the worker, which refreshes a heartbeat file. The Kubernetes probes read both, so a version that starts without serving never becomes `Ready` ([card 20](project-retrospective.md#current-limitations), first phase) |
-| **Planned observability** | CloudWatch Container Insights through the CloudWatch Observability EKS add-on is the accepted target ([ADR-023](decisions.md#adr-023-observability-cloudwatch-container-insights)); deployment is handled separately by the infrastructure repository. Zipkin instrumentation is preserved but unwired. |
+| **CloudWatch observability add-on** | Container Insights collects pod and node metrics and container logs ([ADR-023](decisions.md#adr-023-observability-cloudwatch-container-insights)), installed by the infrastructure repository as an EKS add-on. Zipkin instrumentation is preserved but unwired. |
 
-Operational alerts are not deployed; they are card 21.
+Operational alerts are deployed. Four CloudWatch alarms reach Slack through an
+SNS topic and a Lambda formatter, and
+`docket-infrastructure/docs/operational-alerts.md` holds their thresholds and
+the action each one calls for (card 21).
+
+## What runs inside a namespace
+
+![Docket workloads inside a namespace](img/kubernetes-workloads.png)
+
+The diagram shows `dev`. Staging and production hold the same objects, built
+from the same base manifests, under a different namespace name.
+
+Six Deployments run in each namespace, one per service plus Redis, and every
+one of them declares a single replica. No overlay patches that count and no
+HorizontalPodAutoscaler exists, so the number is identical in all three
+environments and nothing moves it at runtime. One replica per workload is what
+keeps the platform cheap to run and what leaves it without redundancy, which
+[`project-retrospective.md`](project-retrospective.md) records as an accepted
+limitation.
+
+Five of the six carry a Service. `log-message-processor` does not, because it
+serves no port and nothing routes to it; it reads the Redis channel and writes
+to its log stream. Two arrows meet at every Pod and they carry different
+meanings. The Deployment creates the Pod, and the Service selects it by label.
+
+The `HTTPRoute` named `docket` attaches to the gateway and splits traffic by
+path, sending `/login` to `auth-api`, `/todos` to `todos-api` and `/` to
+`frontend`. `users-api` and `redis` have a Service and no route, because only
+other pods reach them.
+
+The secrets chain is the one part that reaches outside the cluster. A
+`SecretStore` reads SSM Parameter Store through IRSA, an `ExternalSecret`
+refreshes every hour, and the resulting `Secret` named `docket-app` is what the
+containers read through `secretKeyRef`. No value is committed anywhere
+([ADR-002](decisions.md#adr-002-secrets-with-external-secrets-and-ssm-parameter-store)).
+
+The dashed box collects what Terraform creates and Argo CD does not, which is
+the namespace itself, its `ResourceQuota` and `LimitRange`, the `NetworkPolicy`
+that isolates it, and the `Role`, `RoleBinding` and `ServiceAccount` the
+workloads run under. That split decides which repository to open when one of
+them is missing.
 
 ## Boundaries between development, staging and production
 

@@ -61,6 +61,7 @@ These conditions determine [ADR-002](decisions.md#adr-002-secrets-with-external-
 |---|---|---|---|
 | Logical architecture | [`img/logical-architecture.png`](img/logical-architecture.png) | [`logical-architecture.md`](logical-architecture.md) | Lucidchart |
 | Deployment per environment | [`img/environments.png`](img/environments.png) | [`environments.md`](environments.md) | Lucidchart |
+| Workloads inside a namespace | [`img/kubernetes-workloads.png`](img/kubernetes-workloads.png) | [`environments.md`](environments.md) | Lucidchart |
 | AWS infrastructure | [`img/aws-infrastructure.png`](img/aws-infrastructure.png) | [`aws-infrastructure.md`](aws-infrastructure.md) | Lucidchart |
 | How the pipelines connect | [`img/pipeline-map.png`](img/pipeline-map.png) | [`pipelines.md`](pipelines.md) | Lucidchart |
 | Commit to development | [`img/pipeline-commit-to-development.png`](img/pipeline-commit-to-development.png) | [`pipelines.md`](pipelines.md) | Lucidchart |
@@ -71,7 +72,7 @@ These conditions determine [ADR-002](decisions.md#adr-002-secrets-with-external-
 
 The PNGs in `img/` are the published version and travel with the repository. The editable source of each diagram lives in the tool indicated. When a diagram changes, the PNG must be re-exported under the same file name so the documents embedding it keep resolving.
 
-**A diagram is documentation and goes stale the same way.** A review on 16 September 2026 found every diagram describing a state the platform had left behind. Only the pipeline map was re-exported then; the other eight were redrawn in Lucidchart and their PNGs never reached this repository. All nine were redrawn again and re-exported on 21 September 2026 against the platform as it runs. They show the Gateway API with two load balancers, CloudWatch observability with its alarms reaching Slack, the SonarQube gate and the HIGH and CRITICAL image gate in every service pipeline, the recorded production sync that the restore on start reads, and Renovate as pending work (card 52). The editable source lives outside the repository and never enters a pull request, so a change that alters what a diagram shows is not finished until its PNG is re-exported.
+**A diagram is documentation and goes stale the same way.** A review on 16 September 2026 found every diagram describing a state the platform had left behind. Only the pipeline map was re-exported then; the other eight were redrawn in Lucidchart and their PNGs never reached this repository. All nine were redrawn again and re-exported on 21 September 2026 against the platform as it runs, and a tenth was added on 23 September 2026 for the Kubernetes objects inside a namespace. They show the Gateway API with two load balancers, CloudWatch observability with its alarms reaching Slack, the SonarQube gate and the HIGH and CRITICAL image gate in every service pipeline, the recorded production sync that the restore on start reads, and Renovate as pending work (card 52). The editable source lives outside the repository and never enters a pull request, so a change that alters what a diagram shows is not finished until its PNG is re-exported.
 
 ## Contributing
 

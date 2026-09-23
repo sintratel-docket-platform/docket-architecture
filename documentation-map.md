@@ -18,7 +18,7 @@ ties everything together.
 |---|---|---|
 | [`project-walkthrough.md`](project-walkthrough.md) | The final presentation: the client's problem, what was built area by area, results with evidence, limitations, coverage against the course brief | 09 |
 | [`logical-architecture.md`](logical-architecture.md) | The five services, the queue, the call graph and the supporting platform | 01, 03 |
-| [`environments.md`](environments.md) | Namespaces, boundaries between environments, GitOps flow, secrets, DNS | 02, 04 |
+| [`environments.md`](environments.md) | Namespaces, boundaries between environments, the Kubernetes objects inside a namespace, GitOps flow, secrets, DNS | 02, 04 |
 | [`aws-infrastructure.md`](aws-infrastructure.md) | Network, EKS, registry, state backend, identity, secrets, budget | 02, 08, 09 |
 | [`design-patterns.md`](design-patterns.md) | The patterns the services and the platform apply, with the file that implements each and the tests that check them | 03 |
 | [`pipelines.md`](pipelines.md) | The ten pipelines, how they connect, the test pyramid, six sequence diagrams and the gate table | 04, 05, 06, 09 |
