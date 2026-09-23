@@ -1,227 +1,207 @@
 # Demo runbook
 
-**Purpose** A practical script for the technical demo and the demonstration
-video, card 36. It sequences what to show, the exact commands and screens,
-what a healthy run looks like, and what to do when something does not
-cooperate live. It is not the video itself — recording it is a manual step
-outside what this repository can produce — and it is not a slide deck; card
-36 asks for a script, not slides.
+**Purpose.** A practical script for the technical demo and demonstration
+video in card 36. It says what can be shown now, where the durable evidence
+lives, and which statements would overclaim the delivered platform. It is not
+the video itself: recording and publishing the video remain manual work.
 
-**Read this first: what the demo can honestly show today.** The task and
-case board (card 28) and task assignment (card 29) are merged into `main`
-in both `docket-todos-api` (#13, #14) and `docket-frontend` (#13, #14).
-`docket-gitops`'s `dev` kustomization already references `docket/todos-api`
-and `docket/frontend` at `1.2.0`, so the pipeline has written the deployment
-— but this document was not able to confirm the running cluster is actually
-`Synced` and `Healthy` at demo-prep time: no live Argo CD or `kubectl`
-access to the real cluster was available when this section was last
-written. Section 6 below gives two paths — verify `dev` yourself first
-(section 0), and prefer it if it checks out; fall back to a local
-`docket-local` build from `main` otherwise. Either way, say plainly on
-camera which one you're using. Section 8 (production release) is a
-walkthrough of a release that has not happened: card 27 is genuinely open,
-blocked on two promotion-gate gaps described there, not merely unpushed
-work. Say this plainly during the recording rather than presenting either
-as further along than it is.
+## Current constraint
+
+The AWS free-credit account ended on 22 September 2026. The EKS cluster, ECR
+images, Terraform state, secrets, DNS zone, CloudWatch data and Argo CD runtime
+no longer exist. The demo therefore has two honest surfaces:
+
+1. repository and GitHub evidence for the infrastructure, pipelines,
+   promotions, security and historical production release; and
+2. `docket-local` for the client-visible task board.
+
+Do not present a local container as development or production, and do not show
+an old screenshot as live state. If the platform is rebuilt in a funded AWS
+account later, this runbook can regain live sections after they are revalidated.
+The rebuild procedure is
+[`docket-infrastructure/docs/rebuilding-in-a-new-account.md`](https://github.com/sintratel-docket-platform/docket-infrastructure/blob/main/docs/rebuilding-in-a-new-account.md).
 
 ## 0. Before recording
 
 | Check | Why |
 |---|---|
-| `dev` is `Synced` and `Healthy` in Argo CD, and its `todos-api`/`frontend` `Application`s report `1.4.0` (or newer), the version that carries card 30's deadlines | The walkthrough opens there; a broken `dev` derails everything after it. This also decides which path section 6 takes — real `dev` if this checks out, `docket-local` otherwise |
-| The SonarQube Cloud org (`sintratel-docket-platform`) is reachable and all five services — `auth-api`, `users-api`, `todos-api`, `log-message-processor`, `frontend` — show a passed Quality Gate | All five carry the enforced `quality` job on `main` today (see section 3) |
-| The most recent Slack message in the alerts channel from card 21's controlled trigger test is still visible, or its screenshot is on hand | Section 7 shows it; Slack retention may have scrolled it out of easy reach |
-| If `dev` cannot be confirmed `Synced`/`Healthy`, `docket-local` builds cleanly from `main` in `docket-todos-api` and `docket-frontend` | Section 6's fallback path |
-| A terminal with `gh` authenticated against `sintratel-docket-platform` and `kubectl`/Argo CD access to `dev` | Sections 2, 4, 5 and 6 run real commands, not screenshots of old ones |
+| All repositories are on current `main` | The video must show delivered code, not a feature branch |
+| `gh auth status` succeeds for `sintratel-docket-platform` | Sections 2, 3, 4 and 8 open real pull requests, issues and workflow runs |
+| `cp .env.example .env`, `./build.sh`, then `docker compose up -d` succeeds in `docket-local` | Section 6 needs a working client-visible capability; these are the repository's documented commands |
+| <http://localhost:8080> accepts `johnd` / `foo` and `janed` / `ddd` | The shared-board demonstration needs two distinct users |
+| The SonarQube Cloud organisation is accessible to the presenter | Section 3 may show current private project metrics; if it is not accessible, use the recorded GitHub Actions results |
+| The Slack screenshot from card 21's controlled trigger is available, if the team retained one | The cloud account and its alarm history are gone; the issue comment is the durable textual evidence |
+
+No AWS login, `kubectl` context or Argo CD session is required for this version
+of the demo. Their former resources cannot be queried.
 
 ## 1. Architecture (2 min)
 
-Open `docket-architecture/logical-architecture.md` alongside a browser tab on
-`dev.docket.<domain>`. Narrate the five services and the one path a request
-takes: `frontend` → `auth-api` (login) or `todos-api` (task actions), with
-`todos-api` publishing to Redis, and `log-message-processor` consuming it.
-Point at the diagram, not just the page, so the audience sees the shape
-before the deep dive.
+Open [`project-walkthrough.md`](project-walkthrough.md) and
+[`logical-architecture.md`](logical-architecture.md). Narrate the five
+services and the request path:
 
-State once, so it frames everything after: one EKS cluster, `us-east-1`,
-three namespaces (`dev`, `staging`, `prod`), Argo CD synchronising all three
-from `docket-gitops`. Everything from here on is one of those three
-namespaces, or the pipeline that fills them.
+```text
+frontend -> auth-api -> users-api
+         -> todos-api -> Redis -> log-message-processor
+```
 
-## 2. Traceability: change → build → version → deployment (4 min)
+Then open [`environments.md`](environments.md): one EKS cluster in
+`us-east-1`, with `dev`, `staging` and `prod` as namespaces. State explicitly
+that this is the architecture that ran before the account ended, not a live
+environment on recording day.
 
-The spine of the whole demo — do this before anything else feature-shaped,
-so later sections can point back to it instead of re-deriving it.
+## 2. Traceability: change -> build -> version -> deployment (4 min)
 
-1. Pick any recent commit on `main` in `docket-todos-api`: `git log --oneline -1 main`.
-2. Show its Actions run: `gh run list -R sintratel-docket-platform/docket-todos-api -b main -L 1`, then open it.
-3. Point at the version the run published, `v<version>`, and the matching tag: `git show v<version>`.
-4. Show the same version in ECR: `aws ecr describe-images --repository-name docket/todos-api --image-ids imageTag=<version> --query 'imageDetails[0].imagePushedAt'`.
-5. Show it declared in `docket-gitops`: the commit the pipeline wrote into `environments/development/kustomization.yaml`, and the matching `releases/todos-api/<version>.md` release notes.
-6. Close the loop in Argo CD: the `todos-api` `Application` in `dev`, `Synced`, its running image tag matching step 4.
+Use the last recorded production release as the spine of the demonstration.
+It remains checkable without AWS:
 
-One sentence ties it together: a version name is never assigned twice, the
-image Trivy scanned is the exact image ECR holds and Argo CD deployed, and
-every step traces back to the one commit in step 1.
+1. Open `docket-todos-api` pull request #15 and commit `ea0cf8a`, the image-gate
+   fix included in release 1.3.0.
+2. Open GitHub Actions run `35555036762`; show that tests, the SonarQube gate,
+   image build and image scan passed before publication.
+3. Show the immutable service version with `git show v1.3.0` in
+   `docket-todos-api`.
+4. Open `docket-gitops/releases/todos-api/1.3.0.md`; it connects the version to
+   the source pull requests, commits and image tag.
+5. Open `docket-gitops` commit `c4759ad` and
+   `environments/production/kustomization.yaml`; production declares
+   `docket/todos-api:1.3.0` there.
+6. Open `docket-gitops` pull request #52. Its gate, approval and sync comments
+   record the promotion and the historical `Synced`/`Healthy` verification.
+
+Do not query ECR or Argo CD: those resources are gone. The durable chain is
+source commit -> successful workflow -> version tag and release note -> GitOps
+revision -> recorded production sync.
 
 ## 3. CI pipeline and SonarQube (5 min)
 
-Open a pull request against `docket-auth-api` (or reuse an existing closed
-one) and walk its checks top to bottom: `Tests` (install, suite, coverage
-artifact), `SonarQube Cloud scan` (re-run with coverage, submitted to
-SonarQube Cloud, Quality Gate awaited), `Build and scan` (image built
-in-runner, Trivy blocks on CRITICAL, publishes only on a push to `main`).
-Show the Quality Gate passed badge on the SonarQube Cloud project page for
-`sintratel-docket-platform_docket-auth-api`.
+Open one service's `.github/workflows/service-ci.yml` and show the job order:
 
-State the coverage across the platform plainly: all five services —
-`auth-api`, `users-api`, `todos-api`, `log-message-processor`, and
-`frontend` — carry the identical `quality` job and a real
-`sonar-project.properties`, merged into `main`, with a green Quality Gate.
-Show a second project's passed gate alongside `auth-api`'s so the audience
-sees this isn't one project standing in for the rest — `todos-api` and
-`frontend` are the simplest to point at. Worth a mention if there's time:
-Sonar's own GitHub Actions ruleset caught real supply-chain gaps in the CI
-that installs each project's dependencies, not just in application code —
-`todos-api`'s `quality` job now installs with `--ignore-scripts` and pins
-the exact version it invokes, and `log-message-processor`'s installs from
-a `pip-tools`-generated lock file with `--require-hashes`.
+```text
+Tests -> SonarQube Cloud scan -> Build and scan -> publish/promote
+```
+
+`Build and scan` depends on both tests and the quality job. The quality job
+waits for the server-side SonarQube Quality Gate; a failed gate therefore
+produces no image. Show the same structure in a second service to demonstrate
+that it is platform-wide, then open the successful card-11 workflow runs or
+the private SonarQube dashboards if the presenter has access.
+
+Show the current Trivy gate as well: every service blocks **HIGH and
+CRITICAL** findings before publication. Do not repeat the former statement
+that only CRITICAL findings block; that stopped being true on 21 September.
 
 ## 4. Security controls (3 min)
 
-Show, in order: the `Report HIGH and CRITICAL findings` and
-`Block on CRITICAL` Trivy steps in the same pipeline run from section 3; the
-OIDC role assumption step (`Assume the build role`) and note there is no
-long-lived AWS credential in any service repository's secrets
-(`gh secret list -R sintratel-docket-platform/docket-todos-api`, pointing
-out only `GITOPS_APP_PRIVATE_KEY` and the two Slack webhooks are present);
-`CODEOWNERS` in `docket-gitops` gating the manifest repository.
+Show four controls and their limits:
 
-State plainly: the two production-access controls — a dedicated Argo CD
-`production-approver` role (`docket-gitops` PR #45) and per-person Argo CD
-accounts for production sync (`docket-infrastructure` PR #45) — are merged
-into `main` in both repositories. Show the merged diffs rather than the
-open-PR view.
+1. service pipelines assume AWS roles through GitHub OIDC and contain no
+   long-lived AWS access key;
+2. HIGH and CRITICAL image findings block publication;
+3. the production AppProject confines production to the GitOps repository,
+   `prod` namespace and allowed namespaced kinds; and
+4. the three public team repositories carry the branch protection recorded in
+   [`standards/branch-protection.md`](standards/branch-protection.md).
+
+Then state the remaining card-19 gap accurately. `docket-gitops` pull request
+#45 declares a `production-approver` role, and `docket-infrastructure` pull
+request #45 declares per-person local accounts and their bindings. Those
+changes merged after the last infrastructure run, were never applied to the
+retired cluster, and the source still leaves the shared Argo CD administrator
+enabled. Production access is therefore designed but not proven restricted.
 
 ## 5. GitOps and environments (3 min)
 
-Open `docket-gitops` and show `environments/development`,
-`environments/staging`, `environments/production` side by side: identical
-structure, different pinned versions. Show the Argo CD UI (or
-`argocd app list`) with all three `Application` objects, and point out
-`dev` and `staging` on automated sync, `prod` on manual. Narrate the two
-independent controls production carries: a reviewed, approved pull request
-merging the manifest change, and a separate, later, human-triggered sync —
-two auditable acts, not one.
+Open `docket-gitops/environments/development`, `staging` and `production` side
+by side. Show that they share bases but pin versions independently. Then show:
 
-Reference `environments.md`'s boundary table for the one thing worth saying
-aloud: isolation is namespace-level only, so this is one cluster carrying
-three environments, not three clusters.
+- automated sync for development and staging;
+- manual sync for production;
+- `docs/production-change-policy.md` for approval; and
+- pull request #52 for the recorded release.
 
-## 6. Task and case board, with assignment (5 min)
+This is a repository walkthrough, not a live Argo CD demonstration. The last
+runtime state is evidence on the release pull request; there is no current
+Application object to inspect.
 
-The client-visible capability the acceptance criteria ask for. Cards 28 and
-29 are merged into `main` in both `docket-todos-api` and `docket-frontend`,
-and `docket-gitops`'s `dev` kustomization declares both services at
-`1.4.0`, which also carries card 30's deadlines (steps 7 to 10). Use whichever of the two paths below the section 0 check settled:
+## 6. Task and case board (5 min)
 
-**Preferred — real `dev`.** If `dev` is confirmed `Synced` and `Healthy`
-with both services at `1.4.0` or newer, run the steps below against
-`https://dev.docket.<domain>` directly. This is the stronger demo: it's the
-actual deployed platform, not a workstation build.
+Run the client-visible part locally from the current service `main` branches:
 
-**Fallback — `docket-local`.** If `dev` could not be confirmed, build
-`docket-local` from `main` (not a feature branch — the work is merged) in
-both `docket-todos-api` and `docket-frontend`, and say plainly on camera
-that this is a local build of merged, deployed-pending-verification code,
-not the running `dev` environment.
+```bash
+cd docket-local
+cp .env.example .env
+./build.sh
+docker compose up -d
+```
 
-1. Log in, land on the task board: three columns, Pending / In progress /
-   Done, not a flat list.
-2. Create a task with a case tag (`case-demo-01`). It appears in Pending.
-3. Filter the board by that case; only the new task remains.
-4. Click `Start` — it moves to In progress via a real `PATCH /todos/:id`,
-   visible in the browser's network tab if the audience wants proof.
-5. Assign it to a second username in the assignment field; the badge
-   updates from `Unassigned`.
-6. Open the board as that second user (a second browser session, logged in
-   separately) and filter by assignee: the task the first user created is
-   visible — the point of card 29, and only possible because card 28
-   replaced the old per-user-siloed storage with one shared board.
-7. Create a task with a deadline set a few days in the past. Its due-date
-   badge shows that date, and its compliance badge reads `Overdue`.
-8. Create a second task with a deadline set a few days from today, still
-   inside the coming week. Its compliance badge reads `Upcoming`.
-9. Filter the board by the `Overdue` compliance state; only the first task
-   remains. Reset the filter afterward.
-10. Click `Start` on the overdue task, then `Complete`. Its compliance
-    badge changes to `Completed`, whatever its deadline. This is card 30's
-    point: a finished task stops counting against the date that made it
-    late.
+Open <http://localhost:8080> and perform this flow:
 
-If you ran this against real `dev`, see "Cleaning up demo data" below
-before ending the recording session.
+1. Log in as `johnd` / `foo`.
+2. Create a task with case `case-demo-01`; confirm it starts in **Pending**.
+3. Filter by that case.
+4. Start the task; confirm it moves to **In progress**.
+5. Assign it to `janed`; confirm the assignee badge changes.
+6. In a separate browser session, log in as `janed` / `ddd`, filter by
+   assignee and show the same shared task.
+7. Create one task with a past deadline and one due within seven days; show the
+   **Overdue** and **Upcoming** badges.
+8. Complete the overdue task; its compliance state becomes **Completed**.
+
+Cards 28 and 29 are done and their current local suites pass. The deadline
+implementation exists and is tested, but card 30 remains open because the
+agreed demonstration-environment evidence was never completed before AWS
+ended. Say that distinction on camera.
+
+Stop the local environment after recording:
+
+```bash
+docker compose down
+```
 
 ## 7. Observability and operational alerts (4 min)
 
-**Observability, card 20, closed.** Show the `/health` endpoint on two
-services (`curl https://dev.docket.<domain>/health`, and the worker's
-heartbeat file if a shell is available: `kubectl exec` into the
-`log-message-processor` pod in `dev`, `stat /tmp/heartbeat`). Open the
-CloudWatch Container Insights view for the `dev` namespace: pod-level CPU,
-memory, and the aggregated application logs it collects, queryable there.
+Use durable evidence rather than pretending CloudWatch is live:
 
-**Operational alerts, card 21, closed.** Show the alert configuration (the
-threshold and the channel it posts to) and then the proof already on hand
-from section 0: the Slack message from the card's own controlled trigger
-test. Narrate what it demonstrates: a real degrade condition, detected, and
-routed to a channel distinct from the pipeline's own build/deploy
-notifications — the acceptance criterion is that alerts are
-distinguishable from pipeline noise, not merely present.
+- card 20's closure comment records the former Container Insights add-on,
+  application log group and seven-day retention;
+- `docket-infrastructure/stacks/ephemeral/alerts.tf` declares restart, CPU,
+  memory and error-rate alarms;
+- `docket-infrastructure/docs/operational-alerts.md` explains thresholds and
+  the SNS -> Lambda -> Slack path; and
+- card 21's 21 September comments record the failed encrypted-topic test, its
+  fix, and the successful controlled ALARM and OK deliveries.
 
-## 8. Production release flow (3 min, walkthrough only — no sync)
+Card 20 is done. Card 21 remains open for one precise reason: the response an
+operator should take for each alert is not documented. If the Slack screenshot
+still exists, show it as historical evidence and label it with its date.
 
-State the header sentence first: **this section is a walkthrough of a
-release that has not happened.** Card 27 is open, not merely unpushed.
+## 8. Production release flow (3 min, recorded evidence only)
 
-Show `docket-gitops/.github/workflows/promote.yml` and the real dispatch
-that would move a version from `staging` into `production`:
+Card 27 is done. Walk through the completed 21 September release without
+dispatching a workflow or syncing anything:
 
-```bash
-gh workflow run promote.yml -R sintratel-docket-platform/docket-gitops \
-  -f target=production -f services=auth-api,users-api,todos-api,log-message-processor,frontend
-```
+1. Open workflow run `35572437557`; the deployed-development L2 gate and the
+   full L3 suite against staging passed.
+2. Open `docket-gitops` pull request #52; show its approval, gate evidence and
+   sync record.
+3. Show GitOps revision `c4759ad` and the five production image versions.
+4. Show card 27's closing evidence: production was `Synced`/`Healthy`, all five
+   Deployments were ready, and the public health checks passed at that time.
 
-Narrate what it does without running it against `production`: resolves the
-source environment, runs the L3 gate (the full suite for a production
-promotion, the smoke suite for staging), and on a pass opens a pull request
-with a `Gate evidence:` comment. Merging that pull request needs an
-approval from a named approver (`docs/production-change-policy.md` in
-`docket-gitops`); the sync itself is a second, separate, manual act.
-
-Then state the actual blocker, from the card's own reopening comment and
-`AGENTS.md` section 9.5: the documented `main → dev` gate requires blocking
-on HIGH-severity Trivy findings, and every service today blocks only on
-CRITICAL; and the documented `dev → staging` gate requires "L2 green
-against `dev`," which does not exist — L2 only runs pre-deployment, inside
-CI, never against the environment it actually deployed to. Closing card 27
-needs one of: implementing both gates across all five services, or a
-reviewed amendment to `AGENTS.md`'s own standard. Neither is a slide-level
-detail to skip past; it is the reason there is no production release to
-show yet.
+Do not run `gh workflow run`, `argocd app sync` or any Kubernetes write during
+the demo. There is no live target, and the release record already supplies the
+traceability this section is meant to show.
 
 ## 9. FinOps summary (2 min)
 
-Show `docket-infrastructure`'s merged cost documentation (`docs(costs):
-estimate infrastructure costs from the running architecture`, PR #46,
-merged into `main`). Walk its cost breakdown page: the fixed floor (EKS
-control plane, the NAT gateway, the Route 53 zone), the components that
-scale with usage (node hours, load balancer, data transfer), what stays
-inside the AWS free tier at this scale, and the explicit assumptions the
-estimate is built on — single cluster, `us-east-1`, on-demand nodes, no
-reserved capacity. Say plainly that these are estimates against the
-documented architecture, not a billed invoice, and that the document names
-its assumptions rather than presenting a single number as fact.
+Open `docket-infrastructure/docs/infrastructure-costs.md`. Walk through the
+shared EKS compute, NAT Gateway, two load balancers and usage-driven
+observability lines, then the stated exclusions. The estimate is about
+285--290 USD per continuously running month at the rates verified on 17
+September. It is the cost of rebuilding and running the declared architecture,
+not a current bill.
 
 ## Demo order and timing
 
@@ -232,85 +212,45 @@ its assumptions rather than presenting a single number as fact.
 | 3 | CI pipeline and SonarQube | 5 | 11 |
 | 4 | Security controls | 3 | 14 |
 | 5 | GitOps and environments | 3 | 17 |
-| 6 | Task and case board, with assignment | 5 | 22 |
-| 7 | Observability and operational alerts | 4 | 26 |
-| 8 | Production release flow (walkthrough) | 3 | 29 |
+| 6 | Task and case board | 5 | 22 |
+| 7 | Observability and alerts | 4 | 26 |
+| 8 | Production release evidence | 3 | 29 |
 | 9 | FinOps summary | 2 | 31 |
 
-Target duration **30 minutes**, one minute of slack. Sections 1, 8 and 9 are
-the first to trim if running long — they are narration over static
-material, not live systems that need to be seen working. Section 6 is the
-last to trim; it is the one capability the acceptance criteria name
-explicitly ("at least one capability visible to the client").
+Target 30 minutes with one minute of slack. Preserve section 6 if time runs
+short: it is the only client-visible behavior in the recording.
 
-## Fallback plan
+## Fallbacks
 
-| If this fails live | Do this instead |
+| Problem | Response |
 |---|---|
-| `dev` is not `Synced`/`Healthy` when recording starts | Fix it before recording rather than narrating around it — an unhealthy environment undermines section 2 and 5 together. If there is truly no time, use the most recent screenshot of a healthy state and say so on camera. |
-| A live `kubectl`/Argo CD command errors on stage | Fall back to a screenshot taken during the pre-check in section 0; do not debug cluster access live. |
-| `docket-local` does not build cleanly from `main` for section 6 | Show the code (the diff, the new endpoints, the passing local test suite) instead of the running UI, and say why. A narrated diff is honest; a silently skipped section is not. |
-| The SonarQube Cloud UI is slow or briefly down | Screenshot from the pre-check stands in; narrate live only what is actually live. |
-| Slack's history has scrolled past the card 21 trigger-test message | Use the screenshot captured in the pre-check (section 0). |
-| Running well past 30 minutes | Cut section 1 to the diagram alone, cut section 9 to the one summary sentence, and skip the `promote.yml` file read-through in section 8 down to the narration. |
-
-## Cleaning up demo data
-
-Section 6 creates real records. If it ran against `docket-local`, the board
-is in-memory and disappears when the local stack stops — nothing to clean
-up. If it ran against real `dev`, the shared board persists across the
-worker process's lifetime, so leave it tidy:
-
-1. Identify the demo records: the task created with the case tag
-   `case-demo-01`, and any task assigned to the second demo username used
-   in step 5. The board's case filter (`Filter by case`) finds the first by
-   itself; the assignee filter finds the second.
-2. Remove each with the board's own delete control (the `X` button on the
-   task) — the same `DELETE /todos/:taskId` the application always uses,
-   nothing outside the app's own behavior.
-3. Confirm the board no longer shows them, filtered or not.
-
-This is application-level demo-data cleanup only. It does not touch
-infrastructure, the cluster, or any other environment.
+| `docket-local` does not start | Show the current implementation and the fresh L1/L2 test results; state that the capability could not be executed on the recording machine |
+| A private SonarQube project cannot be opened | Show the quality job definition and its recorded successful GitHub Actions run |
+| The Slack screenshot is unavailable | Show card 21's timestamped controlled-trigger evidence; do not recreate a screenshot |
+| A GitHub page is slow | Keep the commit, pull request and workflow identifiers above open in separate tabs before recording |
+| The recording runs long | Compress sections 1 and 9; do not omit the limitations in sections 4 and 7 |
 
 ## Recording and delivery
 
-No screen-recording tool or video-hosting platform is documented elsewhere
-in this project, so none is prescribed here — use whatever is already
-standard for the team (the OS's own screen recorder, OBS, or similar).
+Record section by section. Keep the URL or repository path visible, and show
+the command before its output. Use `localhost` only for section 6; every cloud
+screen shown elsewhere is historical evidence and must be narrated in the past
+tense.
 
-**Flow:** record section by section rather than one unbroken take, so a
-mistake in one section only costs a re-record of that section, not the
-whole video. Keep the browser and the terminal both visible where a
-section uses both (sections 2 through 6, 8); full-screen the browser alone
-where it doesn't (sections 1, 7, 9). Narrate in the first person, present
-tense, describing what's on screen as it happens rather than summarizing
-afterward.
-
-**What should be visible:** the actual command text before it runs, not
-just its output; the actual URL bar, so it's clear which environment
-(`dev`, or `localhost` for the `docket-local` fallback) is on screen;
-enough of each dashboard (SonarCloud, Argo CD, CloudWatch) to read the
-relevant number or status, not a cropped corner of it.
-
-**File naming:** `docket-demo-card36-<YYYY-MM-DD>.<ext>` for the raw
-recording, so a re-record on a different day doesn't silently overwrite
-the previous attempt.
-
-**Where it's referenced:** link or attach the final video on the card 36
-issue in `docket-roadmap`, the same place this project already records
-evidence for other cards (for example, card 21's controlled-trigger-test
-proof). Where the video file itself is hosted is a decision for whoever
-finalizes it — this document does not assume a specific platform.
+Name the file `docket-demo-card36-<YYYY-MM-DD>.<ext>`. Link or attach the final
+video on card 36. Card 36 can move to Done only after the recording visibly
+shows the local client capability, the retained monitoring evidence and the
+traceability flow above.
 
 ## What this demo does not claim
 
-- Whether real `dev` was actually `Synced` and `Healthy` at recording time
-  is only known once section 0's check is run that day — this document was
-  written without live cluster access to confirm it in advance. Section 6
-  says on camera which of its two paths was used.
-- Card 27 is a walkthrough of a release procedure, not a completed
-  release; production has not been synced by this work. The two
-  promotion-gate gaps described there (`main → dev` blocking only on
-  CRITICAL, not HIGH; no L2 gate against the deployed `dev` environment)
-  are unresolved as of this writing.
+- The platform is currently deployed. It is not.
+- The old ECR images, CloudWatch metrics, Terraform state or Argo CD history
+  can be queried. They ended with the AWS account.
+- Per-person production access was applied or verified. It was not, and card
+  19 remains open.
+- Card 21 is complete. Its alert delivery worked, but its operator-response
+  documentation remains open.
+- Card 30 is complete. The deadline feature exists, but its agreed
+  demonstration-environment evidence is missing.
+- The video exists until its link is attached to card 36.
