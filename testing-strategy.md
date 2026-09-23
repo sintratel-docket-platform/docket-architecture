@@ -36,21 +36,21 @@ Promotion moves in one direction, from development to staging to production, as 
 
 ## Current state
 
-Verified 16 September 2026.
+Verified 23 September 2026, by running each suite.
 
 | Service | L1 tests | L2 tests |
 |---|---|---|
 | `auth-api` | 19 | 14 |
-| `users-api` | 13 | 11 |
-| `todos-api` | 14 | 12 |
+| `users-api` | 19 | 11 |
+| `todos-api` | 65 | 31 |
 | `log-message-processor` | 13 | 7 |
-| `frontend` | 37 | 7 |
+| `frontend` | 72 | 8 |
 
-147 tests across L1 and L2, all five services. Line coverage is reported per pull request by each service's own CI, not summarised here since a fixed number goes stale the moment it is written. The rule that currently defines "sufficient" coverage is [`AGENTS.md`](AGENTS.md) section 9.4's ratchet. Coverage on new code must not fall below the service's existing overall coverage. A fixed numeric floor per service is card 11's job, SonarQube, still in progress.
+259 tests across L1 and L2, all five services. `todos-api` and `frontend` carry most of the growth since the earlier counts. Cards 28, 29 and 30 added the shared board, the assignment of a task to a person and the deadlines, each with its own tests. Line coverage is reported per pull request by each service's own CI, not summarised here since a fixed number goes stale the moment it is written. Two rules define "sufficient" coverage. [`AGENTS.md`](AGENTS.md) section 9.4's ratchet keeps coverage on new code from falling below the service's existing overall coverage, and card 11's SonarQube quality gate, enforced in all five services since 20 September 2026, blocks the pipeline when the project's own threshold is missed.
 
-L3 covers six scenarios in `docket-gitops/e2e`. Three are tagged smoke and run on every development to staging promotion; all six run on every staging to production promotion.
+L3 covers seven scenarios in `docket-gitops/e2e`, across `auth.spec.js`, `todos.spec.js` and `deadlines.spec.js`. Three are tagged smoke and run on every development to staging promotion; all seven run on every staging to production promotion.
 
-Two related areas sit outside this strategy. Observability driven alerting, cards 20 and 21, is in progress and will feed operational response, not test gating. Per level ownership by a dedicated QA team does not apply here; one team covers all five services and all three levels.
+Two related areas sit outside this strategy. Observability driven alerting, cards 20 and 21, is delivered and feeds operational response rather than test gating; `docket-infrastructure/docs/operational-alerts.md` holds the alarms, their thresholds and the action each one calls for. Per level ownership by a dedicated QA team does not apply here; one team covers all five services and all three levels.
 
 ## Related documents
 

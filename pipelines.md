@@ -44,7 +44,7 @@ in less space.
 | `release` | `docket-terraform-modules` | 6, crosses repositories | Sequence 4 |
 | `verify` | `docket-gitops`, inside `promote.yml` | 1 (one job in one runner) | Sequence 5, as a table |
 | rollback | `docket-gitops` | 5 | Sequence 6 |
-| `pr-conventions` | all nine | 2 | Gate table |
+| `pr-conventions` | all thirteen | 2 | Gate table |
 | `terraform-ci` | `docket-infrastructure` | 2 | Gate table |
 | `module-ci` | `docket-terraform-modules` | 2 | Gate table |
 | `gitops-ci` | `docket-gitops` | 2 | Gate table |
@@ -96,20 +96,24 @@ reachable through the gateway, which only a real deployment gives.
 Coverage is produced at the unit level and consumed by SonarQube. Integration and end to
 end produce pass or fail plus traces, and their result is what the promotion gate reads.
 
-**Current state, 16 September 2026.** All five services carry a suite and `service-ci` runs
-it on every change. 147 tests, 96 at level 1 and 51 at level 2. Line coverage is reported
+**Current state, 23 September 2026.** All five services carry a suite and `service-ci` runs
+it on every change. 259 tests, 188 at level 1 and 71 at level 2. Line coverage is reported
 per pull request by each service's own CI and not summarised here, to avoid a number that
-goes stale the moment it is written; card 11 (SonarQube) is where it will be consumed.
+goes stale the moment it is written. Card 11 put a SonarQube quality gate in every service,
+and that gate is where coverage is now consumed.
 
 | Service | L1 | L2 |
 |---|---|---|
 | `auth-api` | 19 | 14 |
-| `users-api` | 13 | 11 |
-| `todos-api` | 14 | 12 |
+| `users-api` | 19 | 11 |
+| `todos-api` | 65 | 31 |
 | `log-message-processor` | 13 | 7 |
-| `frontend` | 37 | 7 |
+| `frontend` | 72 | 8 |
 
-Level 3 exists (`docket-gitops/e2e`, six scenarios) and, since card 17, runs automatically
+Cards 28, 29 and 30 are what moved `todos-api` and `frontend`. The shared board, the
+assignment of a task to a person and the deadlines each arrived with their own tests.
+
+Level 3 exists (`docket-gitops/e2e`, seven scenarios) and, since card 17, runs automatically
 inside `promote.yml` — see Sequence 5.
 
 **Doubles, not a live `dev`, for level 2 — resolved (ADR-022).** This section used to note
@@ -225,26 +229,25 @@ own. The log must show `[vulndb] Downloading vulnerability DB` and the table mus
 
 ### What this leaves open
 
-`log-message-processor` accepts 3 findings and `users-api` accepts 17. Both sets expire on
-2 October 2026, and an expiry is a recheck rather than an extension.
+**`users-api` now accepts nothing.** Card 49 replaced Spring Boot 1.5.6 on Java 8 with
+Spring Boot 3.5.16 on Java 17, and the file is back to `vulnerabilities: []`. The 17
+findings the table above records were one decision repeated, out of support since 2019, and
+changing the framework closed all of them at once ([ADR-024](decisions.md#adr-024-users-api-framework-and-security-baseline-migration)).
 
-The two are different problems and the distinction matters for whoever picks this up.
+**`log-message-processor` accepts twelve findings.** All of them sit in Debian packages
+that the `python:3.11-slim` base carries and that Debian has published no fixed release
+for: perl-base, the util-linux family, ncurses, the systemd shared libraries and libacl1.
+The worker never invokes perl, never mounts a filesystem, never opens a terminal and never
+calls into systemd, and the alternative bookworm base was measured and is worse. Each entry
+carries its own review date in October 2026, and an expiry is a recheck rather than an
+extension. The decision to revisit is whether Debian has shipped a fix.
 
-The three in `log-message-processor` are Debian's to fix. Nothing in the project can reach
-them, the alternative base was measured and is worse, and the worker never invokes perl.
-The decision to revisit is whether Debian has shipped a fix.
-
-The 17 in `users-api` are one decision repeated. Spring Boot 1.5.6 is from 2017 and has
-been out of support since 2019. Tomcat needs 9 or later, Spring needs 5 or later, h2 needs
-a major version that changes SQL syntax, and dom4j has no fix at all. Card 49 is the work
-that empties that file, and its acceptance criteria include the list returning to
-`vulnerabilities: []`. Until then this service reports green because the findings are
-declared, not because they are resolved.
-
-HIGH findings are reported everywhere and block nowhere. That threshold belongs to the
-`main` to `dev` promotion gate in `AGENTS.md` section 9.5, card 16. Raising it into
-`service-ci` today would stop all five services on base image CVEs that are already
-recorded as a limitation.
+**The gate blocks HIGH as well as CRITICAL.** Since 21 September 2026 the blocking Trivy
+step in every `service-ci` passes `severity: HIGH,CRITICAL`, which is what the `main` to
+`dev` gate in `AGENTS.md` section 9.5 requires. Each of the five service repositories
+carries its own merged pull request for the change, under card 27. Raising the threshold
+surfaced findings that CRITICAL alone had hidden, which is why the accepted list in
+`log-message-processor` grew rather than shrank.
 
 ## Sequence 2. Promotion to production
 
@@ -376,7 +379,7 @@ one blocks a merge.
 
 | Pipeline | Trigger | Checks | Blocks |
 |---|---|---|---|
-| `pr-conventions` | every pull request, all nine repositories | Conventional Commit title, branch name pattern, `AGENTS.md` drift against its canonical source | yes |
+| `pr-conventions` | every pull request, all thirteen repositories | Conventional Commit title, branch name pattern, `AGENTS.md` drift against its canonical source | yes |
 | `terraform-ci` | pull requests touching Terraform | `fmt`, `validate`, `tflint`, Trivy config scan, Checkov, OPA policy against saved plans | yes |
 | `module-ci` | pull requests touching modules | account identifier and secret scan, `fmt`, `validate`, plan mode tests | yes |
 | `gitops-ci` | pull requests in `docket-gitops` touching the manifests | `kustomize build` of every environment, each moved image exists in ECR, the version came from the previous environment, the verify gate (ADR-014), production keeps manual sync (ADR-016) | yes |
