@@ -109,7 +109,9 @@ section 7.
 collects pod and node metrics and container logs
 ([ADR-023](decisions.md#adr-023-observability-cloudwatch-container-insights)),
 and four alarms (`restarts-high`, `cpu-high`, `memory-high`, `error-rate`) post
-to Slack through an SNS topic and a Lambda formatter (card #21). `auth-api`'s
+to Slack through an SNS topic and a Lambda formatter. The delivery path was
+exercised successfully before the account ended; card #21 remains open because
+the operational response for each alert is not documented yet. `auth-api`'s
 Zipkin instrumentation runs but sends spans nowhere: no tracing backend is
 deployed. Prometheus and Grafana, named in the brief, were replaced by this
 CloudWatch-based approach, recorded as a deliberate substitution in ADR-023
@@ -126,7 +128,7 @@ service's image gate blocks HIGH and CRITICAL findings, and every service
 enforces a SonarQube quality gate (card #11's five service pull requests,
 each titled "enforce SonarQube quality gate", merged between 18 and 20
 September 2026). Branch protection now covers the three public repositories,
-the most the current GitHub plan allows (card #39, in review,
+the most the current GitHub plan allows (card #39, done,
 [ADR-025](decisions.md#adr-025-branch-protection-within-the-free-plan)). The
 residual risks the team has accepted rather than closed, including the
 production JWT secret incident of 21 September 2026, are recorded in
@@ -151,15 +153,15 @@ endpoint, so every claim stays checkable now that the environment is gone.
 |---|---|
 | First controlled release to production | Card [#27](https://github.com/sintratel-docket-platform/docket-roadmap/issues/27), done. `docket-gitops` pull request [#32](https://github.com/sintratel-docket-platform/docket-gitops/pull/32) (15 September 2026) |
 | Latest production sync, all five services | `docket-gitops` pull request [#52](https://github.com/sintratel-docket-platform/docket-gitops/pull/52) (21 September 2026), revision `c4759ad`, recorded on the same pull request's sync comment |
-| `users-api` off its unsupported framework | Card [#49](https://github.com/sintratel-docket-platform/docket-roadmap/issues/49) delivered (board still shows Ready; its own closing comment confirms completion). Spring Boot 3.5.16 on Java 17, 26 tests passing, `.trivyignore.yaml` empty, zero CRITICAL. [ADR-024](decisions.md#adr-024-users-api-framework-and-security-baseline-migration) |
+| `users-api` off its unsupported framework | Card [#49](https://github.com/sintratel-docket-platform/docket-roadmap/issues/49), done. Spring Boot 3.5.16 on Java 17, 26 tests passing, `.trivyignore.yaml` empty, zero CRITICAL. [ADR-024](decisions.md#adr-024-users-api-framework-and-security-baseline-migration) |
 | HIGH and CRITICAL image findings block every service | Each service's "block HIGH and CRITICAL image findings" pull request, merged 21 September 2026 (`docket-auth-api` #14, `docket-users-api` #12, `docket-todos-api` #15, `docket-log-message-processor` #19, `docket-frontend` #15) |
-| SonarQube quality gate enforced on every service | Each service's "enforce SonarQube quality gate" pull request, merged 18 to 20 September 2026. Card [#11](https://github.com/sintratel-docket-platform/docket-roadmap/issues/11) (board still shows Ready) |
+| SonarQube quality gate enforced on every service | Each service's "enforce SonarQube quality gate" pull request, merged 18 to 20 September 2026. Card [#11](https://github.com/sintratel-docket-platform/docket-roadmap/issues/11), done |
 | Staging promotion gated on a real L2 run against `dev` | `docket-gitops` pull request [#46](https://github.com/sintratel-docket-platform/docket-gitops/pull/46) |
-| Branch protection on the repositories the Free plan allows | Card [#39](https://github.com/sintratel-docket-platform/docket-roadmap/issues/39), in review. [ADR-025](decisions.md#adr-025-branch-protection-within-the-free-plan) |
-| Observability stack delivered | Cards [#20](https://github.com/sintratel-docket-platform/docket-roadmap/issues/20) and [#21](https://github.com/sintratel-docket-platform/docket-roadmap/issues/21), both done. `docket-infrastructure/docs/operational-alerts.md` |
+| Branch protection on the repositories the Free plan allows | Card [#39](https://github.com/sintratel-docket-platform/docket-roadmap/issues/39), done. [ADR-025](decisions.md#adr-025-branch-protection-within-the-free-plan) |
+| Observability stack delivered | Card [#20](https://github.com/sintratel-docket-platform/docket-roadmap/issues/20), done. Card [#21](https://github.com/sintratel-docket-platform/docket-roadmap/issues/21) delivered and exercised the alert path, but remains open until the response for each alert is documented. `docket-infrastructure/docs/operational-alerts.md` |
 | Task board, assignment and deadlines built, deployed to development and staging | `docket-todos-api` and `docket-frontend` pull requests for cards #28, #29, #30, merged 20 to 21 September 2026; `environments/development` and `environments/staging` kustomizations pin `1.4.0` for `frontend` and `todos-api`. Production promotion waiting on private-repository Actions minutes |
 | Terraform modules versioned and tested | `docket-terraform-modules` tags through `v3.3.0`. Card [#46](https://github.com/sintratel-docket-platform/docket-roadmap/issues/46), done |
-| Infrastructure costs estimated | Card [#33](https://github.com/sintratel-docket-platform/docket-roadmap/issues/33), in review. `docket-infrastructure/docs/infrastructure-costs.md` |
+| Infrastructure costs estimated | Card [#33](https://github.com/sintratel-docket-platform/docket-roadmap/issues/33), done. `docket-infrastructure/docs/infrastructure-costs.md` |
 | Automated tests at three levels | L1 and L2 suites in all five services, run by each service's `service-ci` on every pull request; the L3 suite, seven Playwright scenarios in `docket-gitops/e2e`, gates every promotion. 259 tests at L1 and L2, counted by running every suite on 23 September 2026 and listed per service in [`testing-strategy.md`](testing-strategy.md) |
 
 ## 4. Limitations and what comes next
@@ -183,6 +185,9 @@ the platform as it last ran. What matters most:
 4. **`todos-api` stores its data in memory.** A restart loses every task.
 5. **Argo CD was reached through one shared account.** A sync named no
    individual; card #19 recorded this without closing it.
+6. **Alert responses are not documented.** The alert path reached Slack in a
+   controlled test, but card #21 remains open until each alert tells the
+   operator what to inspect and what action to take.
 
 ## 5. Coverage against the brief
 
@@ -205,7 +210,7 @@ stated gap; missing means nothing exists yet.
 | Rollback plans | Complete | `docket-gitops/docs/production-operations.md` §7 |
 | Release notes | Complete | `docket-gitops/releases/`, GitHub Releases per service |
 | Security controls | Complete, with residual risk recorded | `docket-infrastructure/docs/security-controls.md` (private), [`project-retrospective.md`](project-retrospective.md) |
-| Cost estimate and analysis | Complete | `docket-infrastructure/docs/infrastructure-costs.md` (card #33, in review) |
+| Cost estimate and analysis | Complete | `docket-infrastructure/docs/infrastructure-costs.md` (card #33, done) |
 | Lessons learned | Complete | [`project-retrospective.md`](project-retrospective.md) |
 | Final presentation | Complete | This document |
 | Demonstration video | Missing | Card #36, in backlog |
