@@ -17,6 +17,12 @@ Twenty five ADRs live in [`decisions.md`](decisions.md), each with its own conte
 
 ## Current limitations
 
+The platform stopped running on 22 September 2026, when the AWS account's free
+credits ran out and the cluster, the registry, the state, the secrets and the
+DNS zone ended with them. The table below describes the platform as it last ran,
+which is also what a rebuild in a new account would inherit;
+`docket-infrastructure/docs/rebuilding-in-a-new-account.md` covers that path.
+
 Consolidated from four sources, each already checked against the current state of its own repository. `docket-gitops/docs/production-operations.md` section 8, `docket-gitops/docs/production-change-policy.md` section 10, `docket-infrastructure/docs/security-controls.md` section 7 (R1 through R17, the most detailed of the four), and `docket-architecture/pipelines.md`'s "What this leaves open" together cover it, checked again on 21 September 2026 against the repositories and the board.
 
 | # | Limitation | Impact if it is wrong | What would close it | Card |
@@ -49,9 +55,9 @@ The source files behind each of these (`security-controls.md`, tied to card #19)
 
 ## Prioritised future improvements
 
-Ranked by impact if the underlying limitation stays wrong, from the table above, ahead of convenience or cosmetic fixes.
+Ranked by impact if the underlying limitation stays wrong, from the table above, ahead of convenience or cosmetic fixes. Every item now presupposes a rebuild in a new AWS account, since the one the platform ran in is gone, and the ranking is what that rebuild should carry rather than repeat.
 
-1. **Narrow the deploy role's IAM policy and remove standing `AdministratorAccess`** (L2). This carries the highest blast radius of anything on this list, since a single compromised credential can act on the whole account today.
+1. **Narrow the deploy role's IAM policy and remove standing `AdministratorAccess`** (L2). This carried the highest blast radius of anything on this list, since a single compromised credential could act on the whole account.
 2. **Enforce production approval on the private repositories** (L3), through branch protection once a paid GitHub plan is available, or a second team member before then. The three public repositories already have it (ADR-025).
 3. **Make `users-api` refuse to start on a short JWT secret, and add a post-sync smoke check** (L17). This is not hypothetical: a short secret in production broke every login on 21 September 2026, caught only because someone tried to log in.
 4. **Give `todos-api` a real data store** (L6), the one limitation on this list with a direct, visible cost to an end user.

@@ -404,10 +404,12 @@ repositories and rotate by hand. A fine grained token was rejected because it be
 person and expires. The App belongs to the organisation, installs on `docket-gitops` alone
 with `contents: write`, and mints a token per run that lives an hour.
 
-**It does not exist yet, and it is the only thing blocking the tag write.** Creating an
-organisation App and installing it are both owner actions, so this waits on a team lead
-rather than on whoever writes the pipeline. The work was ordered around that. Build, test,
-scan and publication to ECR need none of it and are delivered.
+**It did not exist when this was written, and it was the only thing blocking the tag
+write.** Creating an organisation App and installing it are both owner actions, so the
+work was ordered around that, and build, test, scan and publication to ECR were delivered
+without it. The App exists now, installed on `docket-gitops` alone: each service holds
+`GITOPS_APP_ID` and `GITOPS_APP_PRIVATE_KEY`, and `service-ci` mints a token per run with
+`actions/create-github-app-token` before it writes the version.
 
 **Where exactly the image tag lives.** In the `images:` block of
 `environments/<env>/kustomization.yaml`, one entry per service. It is written by a
@@ -427,5 +429,8 @@ tag cannot carry a failure, and a file needs a commit per run. Sequence 5 answer
 writes it and when, settled later by ADR-022: the promotion pipeline itself, before the
 pull request that would need it exists.
 
-**Where SonarQube runs.** Self hosted inside the cluster or SonarCloud. The choice changes
-the credentials the pipeline needs, and it belongs to card 11.
+**Where SonarQube runs. SonarQube Cloud.** Card 11 settled it against a self-hosted
+instance inside the cluster, which would have added a service to operate and a database to
+back it for a project with a two-week window. Each service repository holds its own
+`SONAR_TOKEN`, and `service-ci` runs the scan after `Tests` and then waits for the Quality
+Gate, so a failed gate stops the run before the image is built.
