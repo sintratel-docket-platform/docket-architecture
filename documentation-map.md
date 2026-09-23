@@ -20,6 +20,7 @@ ties everything together.
 | [`logical-architecture.md`](logical-architecture.md) | The five services, the queue, the call graph and the supporting platform | 01, 03 |
 | [`environments.md`](environments.md) | Namespaces, boundaries between environments, GitOps flow, secrets, DNS | 02, 04 |
 | [`aws-infrastructure.md`](aws-infrastructure.md) | Network, EKS, registry, state backend, identity, secrets, budget | 02, 08, 09 |
+| [`design-patterns.md`](design-patterns.md) | The patterns the services and the platform apply, with the file that implements each and the tests that check them | 03 |
 | [`pipelines.md`](pipelines.md) | The ten pipelines, how they connect, the test pyramid, six sequence diagrams and the gate table | 04, 05, 06, 09 |
 | [`testing-strategy.md`](testing-strategy.md) | The three test levels, where and when each runs, what makes it pass, current counts per service | 05, 09 |
 | [`decisions.md`](decisions.md) | 25 ADRs with context, consequences and rejected alternatives | 09 |
@@ -136,7 +137,7 @@ how the process worked.
 |---|---|---|
 | 01 | Agile methodology and branching | `AGENTS.md` §4–6, `docket-roadmap` (53 cards, two recorded iterations), `docket-ai-sdd` |
 | 02 | Infrastructure as code | `docket-infrastructure` in full, `docket-terraform-modules` (public, tagged releases through `v3.3.0`, module tests since card #46), `aws-infrastructure.md` |
-| 03 | Design patterns | `logical-architecture.md`. **Largely undocumented; open work, no card**, stated in [`project-walkthrough.md`](project-walkthrough.md) §5 |
+| 03 | Design patterns | [`design-patterns.md`](design-patterns.md): the resilience, configuration and integration patterns the brief asks for, the ones the services and the platform apply, where they are tested, and what is deliberately absent |
 | 04 | Continuous integration and deployment | `environments.md`, `docket-gitops`, the CI workflows, [`pipelines.md`](pipelines.md) |
 | 05 | Testing strategy | [`testing-strategy.md`](testing-strategy.md), `AGENTS.md` §9. All five services carry L1 and L2 (147 tests), `docket-gitops/e2e` carries L3, all three gate promotion since card #17 |
 | 06 | Change management and release notes | Delivered: semantic versioning ([ADR-013](decisions.md#adr-013-semantic-versioning-for-services-and-modules)), automated release notes ([ADR-019](decisions.md#adr-019-release-notes), `docket-gitops/releases/`), the production change policy and a documented rollback (`docket-gitops/docs/production-change-policy.md`, `production-operations.md` §7) |
