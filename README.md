@@ -20,6 +20,7 @@ document of every repository, organised by area.
 | [`logical-architecture.md`](logical-architecture.md) | Logical architecture: the five microservices, the message queue, the call graph and the supporting platform. | Components verified against the code |
 | [`environments.md`](environments.md) | Deployment per environment: namespaces, boundaries between `dev`, `staging` and `prod`, GitOps flow, secrets and DNS. | Current, describes what is deployed |
 | [`aws-infrastructure.md`](aws-infrastructure.md) | Physical layer on AWS: budget, multi-AZ network, EKS, registry, state backend, identity and secrets. | Current, describes what is deployed |
+| [`design-patterns.md`](design-patterns.md) | The patterns the services and the platform apply, where each one lives, how it is tested, and what the platform deliberately does not do. | Current |
 | [`pipelines.md`](pipelines.md) | The ten pipelines, how they connect, the test pyramid and the promotion gate table. | Current |
 | [`testing-strategy.md`](testing-strategy.md) | The three test levels, where and when each runs, current counts per service. | Current |
 | [`decisions.md`](decisions.md) | Decision record (ADR) with context, consequences and rejected alternatives. | Current |

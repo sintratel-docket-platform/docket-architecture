@@ -50,12 +50,14 @@ tests (card #46, done).
 [`docket-terraform-modules/README.md`](https://github.com/sintratel-docket-platform/docket-terraform-modules/blob/main/README.md),
 [`aws-infrastructure.md`](aws-infrastructure.md).
 
-**03. Design patterns.** Not documented. The architecture applies patterns
-implicitly (the queue between `todos-api` and `log-message-processor`, the
-Gateway API as a routing layer, GitOps itself as a deployment pattern), but
-nothing names them, explains why, or adds the three the brief asks for beyond
-what already exists. No card owns this gap. See the coverage table in
-section 5.
+**03. Design patterns.** [`design-patterns.md`](design-patterns.md) names what
+the code applies and points at the file behind each one: retry with capped
+backoff where the services depend on Redis, external configuration through
+Parameter Store and the External Secrets Operator, and the Redis channel
+between `todos-api` and `log-message-processor`, which are the resilience,
+configuration and integration patterns the brief asks for. It also lists what
+the platform does without, such as a circuit breaker and a service mesh, and
+why.
 
 **04. Continuous integration and GitOps.** Ten pipelines connect a commit to a
 deployed version: build, test, scan and publish per service, then a promotion
@@ -180,7 +182,7 @@ stated gap; missing means nothing exists yet.
 | Sprint and iteration records | Complete | `docket-roadmap/iterations/`, two recorded iterations |
 | User stories and acceptance criteria | Complete | `docket-roadmap/stories/`, one file per board card; cards 49, 50, 52 and 53 are added by `docket-roadmap` #54 (there is no card 51) |
 | Branching strategy | Complete | [`AGENTS.md`](standards/AGENTS.md) §4 |
-| Design patterns | Missing | No document exists; the brief asks for three additional patterns, none implemented as a named pattern either |
+| Design patterns | Complete | [`design-patterns.md`](design-patterns.md), with the resilience, configuration and integration patterns the brief asks for named against the files that implement them, and the absent ones stated |
 | Operations and maintenance guide | Complete | `docket-gitops/docs/operations-manual.md`, `docket-infrastructure/OPERATIONS.md`, `docket-infrastructure/GETTING-STARTED.md` |
 | Test results and analysis | Complete | [`testing-strategy.md`](testing-strategy.md) |
 | Infrastructure as code | Complete | `docket-infrastructure`, `docket-terraform-modules` |
