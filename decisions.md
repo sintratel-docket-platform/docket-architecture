@@ -46,6 +46,7 @@ Statuses: **Accepted** · **Assumption** (taken in the absence of guidance to th
 | [023](#adr-023-observability-cloudwatch-container-insights) | Observability: CloudWatch Container Insights | Accepted |
 | [024](#adr-024-users-api-framework-and-security-baseline-migration) | Users-api framework and security baseline migration | Implemented |
 | [025](#adr-025-branch-protection-within-the-free-plan) | Branch protection within the Free plan | Implemented |
+| [026](#adr-026-renovate-runs-self-hosted-scoped-to-terraform) | Renovate runs self-hosted, scoped to Terraform | Implemented |
 
 ---
 
@@ -843,6 +844,55 @@ The three convention checks (`PR title is a Conventional Commit`, `Branch name a
 *Including administrators in the public repositories' protection.* It would close the one gap that lets a single available person merge, but it would also block every merge that has nobody else to review it, including the `AGENTS.md` redistributions the team lead has twice needed to push straight to `main`.
 
 **When to revisit.** A change to the organisation's GitHub plan, or any private repository becoming public, whichever comes first. Either reopens the ten-repository gap this record already carries the commands for.
+
+---
+
+## ADR-026 Renovate runs self-hosted, scoped to Terraform
+
+**Status:** Implemented.
+
+**Context.** Card 52 asks why Renovate has never opened a pull request, and for the scope it should run in once it does. The Mend-hosted Renovate App has been installed on this organisation since 9 September 2026. `GET /orgs/sintratel-docket-platform/installations` returns it as `app_slug: renovate`, `app_id: 2740`, `repository_selection: all`, `suspended_at: null`, holding `contents: write`, `pull_requests: write` and `issues: write` among others. The shared preset it would read, `github>sintratel-docket-platform/docket-architecture`, resolves anonymously: `raw.githubusercontent.com` answers 200 for `default.json`, and the repository is public. Every repository carries a `renovate.json` that extends it.
+
+In the fourteen days since, across all twelve repositories, there are zero `renovate/*` branches, zero pull requests authored by the bot, and no Dependency Dashboard issue anywhere. Not one job has run. Everything GitHub controls is in place, and nothing in any repository explains the silence, so what is missing is the job dispatch itself, which Mend schedules from its developer portal rather than from this organisation. That state is not observable or changeable from here, and two weeks of it have already passed.
+
+The cost of the silence is visible in the pins: `stacks/environments/dev` still names the `environment` module at `v1.1.0` and `staging` and `prod` at `v1.0.0`, while `v3.3.0` is published. Every pin bump the project has ever had was a hand-written commit, which is precisely what card 12 specified Renovate to replace.
+
+**Decision.** Stop depending on the portal. Run the same Renovate ourselves, from a scheduled GitHub Actions workflow in `docket-infrastructure`, scoped to that repository and to Terraform dependencies only.
+
+| | |
+|---|---|
+| Where | `.github/workflows/renovate.yml` in `docket-infrastructure` |
+| What runs it | `renovatebot/github-action@v46.3.3`, pinned exactly because the action publishes no moving `v46` tag |
+| When | Daily at 07:00 America/Bogota, plus manual dispatch with a dry-run option, plus a push that changes `renovate.json` or the workflow |
+| Identity | The workflow's `GITHUB_TOKEN` |
+| Repositories | `docket-infrastructure` only; autodiscovery off |
+| Managers | `terraform` only |
+
+The repository's `renovate.json` is unchanged and still supplies every rule: the shared preset, the per-environment branch prefix that gives each stack its own pull request, and the `enabled: false` rule that keeps the bot out of `stacks/environments/prod`. The workflow overrides none of it.
+
+Two of those lines are consequences of the identity rather than preferences. `GITHUB_TOKEN` is refused by GitHub when a push touches a file under `.github/workflows`, which is exactly what the `github-actions` manager would do, so that manager is switched off rather than left to fail. `GITHUB_TOKEN` is also scoped to its own repository, so autodiscovery across the organisation is not available to it. Both lift together, and only together, by moving to a GitHub App token.
+
+Scoping to the Terraform repository first is the narrower of the two options card 52 put to the team, and it is chosen deliberately: card 52 notes that a wider scope would start proposing GitHub Actions, npm, Maven, Go, pip and base-image updates across twelve repositories at up to three open pull requests each, which is a large amount of unreviewed change to absorb at once. Module bumps are the thing the card is actually about.
+
+**Consequences.**
+- Renovate runs on a schedule this organisation owns, and its first run produces the Dependency Dashboard issue in `docket-infrastructure` that card 52 asks for.
+- A new module tag produces a pull request per non-production stack, and none for `stacks/environments/prod`. Nothing merges on its own; a human reads the plan and applies, as the constitution requires.
+- The first proposals are major bumps from `v1.x` to `v3.3.0` that rename live resources. They are reviewed against their plan before any merge, per card 52's last acceptance criterion, and `moved` blocks are the thing to look for.
+- Pull requests opened with `GITHUB_TOKEN` do not trigger `on: pull_request` workflows. A Renovate bump in this repository will not start `terraform-ci` or `pr-conventions` by itself; closing and reopening the pull request, or pushing an empty commit to it, starts them. This is the main cost of the decision and the main reason to move to an App token.
+- The eleven other repositories keep no dependency automation at all. Their `renovate.json` files stay in place and become live the moment either the portal starts working or the App token lands.
+- The Mend App stays installed. If it ever begins dispatching jobs it will run alongside this workflow on the same repository. The two would contend over the same branches, so whichever is second to work is turned off at that point rather than pre-emptively.
+
+**Rejected alternatives.**
+
+*Waiting for the Mend portal.* It is the intended path and needs no code. It has also produced nothing in fourteen days, its state is not visible from this organisation, and the project no longer has time to spend on a dependency it cannot inspect.
+
+*A personal access token, stored as a secret.* It would lift both `GITHUB_TOKEN` limits at once, and pull requests from it would trigger the checks. It is also a long-lived credential tied to one person, in an organisation that removed static credentials everywhere else on purpose (ADR-011), and it would inherit that person's full access rather than a scoped one.
+
+*A dedicated GitHub App, minted per run with `actions/create-github-app-token`.* The right end state, and the pattern this organisation already runs for `docket-gitops-writer`. Not done here only because creating the App is an interactive step outside this repository; the workflow is ready to switch to it in one edit.
+
+*Enabling every manager with `GITHUB_TOKEN`.* The `github-actions` manager would fail on push against a token GitHub forbids from touching workflow files, and a manager that fails on every run is worse than one that is off.
+
+**When to revisit.** Whichever comes first: a GitHub App for Renovate exists, at which point the token, the manager list and the repository list all widen together; or Mend begins dispatching jobs, at which point one of the two runners is turned off.
 
 ---
 
